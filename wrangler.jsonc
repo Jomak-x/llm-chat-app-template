@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "idea-to-launch-agent",
+	"name": "launchlens-ai-app-auditor",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-10-08",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -35,7 +35,7 @@
 	],
 	"workflows": [
 		{
-			"name": "launch-brief-workflow",
+			"name": "launchlens-ai-app-audit",
 			"binding": "LAUNCH_BRIEF_WORKFLOW",
 			"class_name": "LaunchBriefWorkflow"
 		}

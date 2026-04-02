@@ -1,0 +1,64 @@
+<svg width="1400" height="900" viewBox="0 0 1400 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1400" height="900" rx="36" fill="#F6EEE4"/>
+  <rect x="30" y="30" width="1340" height="110" rx="30" fill="white" fill-opacity="0.86" stroke="#E8D8C8"/>
+  <rect x="30" y="164" width="430" height="706" rx="30" fill="white" fill-opacity="0.88" stroke="#E8D8C8"/>
+  <rect x="484" y="164" width="886" height="218" rx="30" fill="white" fill-opacity="0.88" stroke="#E8D8C8"/>
+  <rect x="484" y="406" width="886" height="464" rx="30" fill="white" fill-opacity="0.88" stroke="#E8D8C8"/>
+
+  <text x="68" y="82" fill="#B45309" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="2">LAUNCHLENS</text>
+  <text x="68" y="120" fill="#16213A" font-family="Georgia, serif" font-size="40" font-weight="700">See whether this AI app is worth building.</text>
+  <rect x="1046" y="58" width="188" height="54" rx="27" fill="#F97316"/><text x="1083" y="93" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="700">Run Audit &amp; Plan</text>
+  <rect x="1248" y="58" width="90" height="54" rx="27" fill="white" stroke="#D7DEE9"/><text x="1268" y="93" fill="#334155" font-family="Arial, sans-serif" font-size="24" font-weight="700">New</text>
+
+  <text x="64" y="214" fill="#B45309" font-family="Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="2">START HERE</text>
+  <text x="64" y="256" fill="#16213A" font-family="Georgia, serif" font-size="40" font-weight="700">Brief the idea</text>
+  <text x="64" y="296" fill="#5A6780" font-family="Arial, sans-serif" font-size="22">Include the user, workflow, and outcome.</text>
+
+  <rect x="64" y="330" width="360" height="136" rx="26" fill="#FFF9F4" stroke="#F5D2BC"/>
+  <text x="88" y="362" fill="#C45718" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">CURRENT READ</text>
+  <text x="88" y="404" fill="#16213A" font-family="Georgia, serif" font-size="30" font-weight="700">Support Copilot</text>
+  <text x="88" y="438" fill="#475569" font-family="Arial, sans-serif" font-size="20">AI support copilot for API teams.</text>
+
+  <rect x="64" y="494" width="360" height="180" rx="26" fill="#F8FAFC" stroke="#D7DEE9"/>
+  <text x="88" y="528" fill="#334155" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">AUTO-PICKED MARKET SOURCES</text>
+  <rect x="88" y="558" width="160" height="38" rx="19" fill="#D1FAE5"/><text x="110" y="583" fill="#0F766E" font-family="Arial, sans-serif" font-size="18">intercom.com</text>
+  <rect x="258" y="558" width="154" height="38" rx="19" fill="#D1FAE5"/><text x="282" y="583" fill="#0F766E" font-family="Arial, sans-serif" font-size="18">zendesk.com</text>
+  <text x="88" y="630" fill="#64748B" font-family="Arial, sans-serif" font-size="20">LaunchLens suggests public comparables</text>
+  <text x="88" y="658" fill="#64748B" font-family="Arial, sans-serif" font-size="20">automatically to keep the audit fast.</text>
+
+  <rect x="64" y="700" width="360" height="132" rx="26" fill="white" stroke="#E2E8F0"/>
+  <text x="88" y="734" fill="#64748B" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">BRAINSTORM</text>
+  <rect x="88" y="756" width="312" height="50" rx="18" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <text x="108" y="788" fill="#94A3B8" font-family="Arial, sans-serif" font-size="22">AI support copilot for API companies...</text>
+
+  <text x="520" y="214" fill="#334155" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">AUDIT FLOW</text>
+  <text x="520" y="254" fill="#16213A" font-family="Georgia, serif" font-size="38" font-weight="700">Brief to audit to Cloudflare plan</text>
+  <rect x="520" y="286" width="196" height="70" rx="24" fill="#F2FBF6" stroke="#CBE7D5"/>
+  <rect x="736" y="286" width="196" height="70" rx="24" fill="#FFF7F0" stroke="#F5D2BC"/>
+  <rect x="952" y="286" width="196" height="70" rx="24" fill="#F4F8FF" stroke="#D3E2FA"/>
+  <rect x="1168" y="286" width="166" height="70" rx="24" fill="#F8FAFC" stroke="#D7DEE9"/>
+  <text x="550" y="329" fill="#0F766E" font-family="Arial, sans-serif" font-size="24" font-weight="700">1. Sources</text>
+  <text x="766" y="329" fill="#C45718" font-family="Arial, sans-serif" font-size="24" font-weight="700">2. Audit</text>
+  <text x="990" y="329" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="24" font-weight="700">3. Build</text>
+  <text x="1190" y="329" fill="#475569" font-family="Arial, sans-serif" font-size="24" font-weight="700">Ready</text>
+
+  <rect x="520" y="446" width="410" height="182" rx="26" fill="#FFF9F4" stroke="#F5D2BC"/>
+  <rect x="944" y="446" width="390" height="182" rx="26" fill="#F2FBF6" stroke="#CBE7D5"/>
+  <text x="548" y="484" fill="#B45309" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">SUMMARY</text>
+  <text x="548" y="526" fill="#16213A" font-family="Georgia, serif" font-size="34" font-weight="700">Best wedge</text>
+  <text x="548" y="566" fill="#475569" font-family="Arial, sans-serif" font-size="22">Lead with a narrower support workflow</text>
+  <text x="548" y="596" fill="#475569" font-family="Arial, sans-serif" font-size="22">instead of broad helpdesk automation.</text>
+  <text x="972" y="484" fill="#0F766E" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">BUILD ON CLOUDFLARE</text>
+  <text x="972" y="526" fill="#16213A" font-family="Georgia, serif" font-size="34" font-weight="700">Workers AI + Durable Objects</text>
+  <text x="972" y="566" fill="#475569" font-family="Arial, sans-serif" font-size="22">Fast chat at the edge, persistent session</text>
+  <text x="972" y="596" fill="#475569" font-family="Arial, sans-serif" font-size="22">memory, and background synthesis.</text>
+
+  <rect x="520" y="652" width="814" height="178" rx="26" fill="#F8FAFC" stroke="#D7DEE9"/>
+  <text x="548" y="690" fill="#46617A" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2">INTERACTIVE LAUNCH PAGE</text>
+  <rect x="548" y="714" width="758" height="86" rx="22" fill="white" stroke="#E2E8F0"/>
+  <circle cx="580" cy="740" r="7" fill="#F87171"/>
+  <circle cx="604" cy="740" r="7" fill="#FBBF24"/>
+  <circle cx="628" cy="740" r="7" fill="#34D399"/>
+  <text x="660" y="747" fill="#94A3B8" font-family="Arial, sans-serif" font-size="18">LIVE HTML LAUNCH PAGE</text>
+  <text x="574" y="785" fill="#16213A" font-family="Georgia, serif" font-size="28" font-weight="700">Support Copilot launch page preview</text>
+</svg>

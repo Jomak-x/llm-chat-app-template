@@ -4,7 +4,18 @@ import {
 	type WorkflowEvent,
 	type WorkflowStep,
 } from "cloudflare:workers";
-import { buildChatMessages, CHAT_MODEL, generateLaunchArtifacts } from "./ai";
+import {
+	buildChatMessages,
+	CHAT_MODEL,
+	generateLaunchArtifacts,
+} from "./ai";
+import {
+	extractUrlsFromText,
+	normalizeCompetitorUrls,
+	researchCompetitors,
+	stripUrlsFromText,
+	suggestCompetitorUrlsFromIdea,
+} from "./research";
 import {
 	appendAssistantMessage,
 	appendUserMessage,
@@ -14,10 +25,19 @@ import {
 	failWorkflow,
 	markWorkflowRunning,
 	mergeSnapshot,
+	setCompetitorUrls,
 	resetState,
 	STATE_KEY,
+	updateResearchProgress,
 } from "./state";
-import { Env, LaunchArtifacts, LaunchWorkflowParams, ProjectState, SnapshotExtraction } from "./types";
+import {
+	CompetitorResearchResult,
+	Env,
+	LaunchArtifacts,
+	LaunchWorkflowParams,
+	ProjectState,
+	SnapshotExtraction,
+} from "./types";
 
 const encoder = new TextEncoder();
 
@@ -40,8 +60,16 @@ export default {
 			return handleChatRequest(request, env);
 		}
 
-		if (url.pathname === "/api/generate-brief" && request.method === "POST") {
-			return handleGenerateBriefRequest(request, env);
+		if (url.pathname === "/api/competitors" && request.method === "POST") {
+			return handleCompetitorsRequest(request, env);
+		}
+
+		if (
+			(url.pathname === "/api/run-analysis" ||
+				url.pathname === "/api/generate-brief") &&
+			request.method === "POST"
+		) {
+			return handleRunAnalysisRequest(request, env);
 		}
 
 		if (url.pathname === "/api/reset" && request.method === "POST") {
@@ -94,6 +122,12 @@ export class LaunchSessionDurableObject extends DurableObject<Env> {
 			return jsonResponse(await this.writeState(nextState));
 		}
 
+		if (url.pathname === "/competitors" && request.method === "POST") {
+			const body = (await request.json()) as { urls?: string[] };
+			const nextState = setCompetitorUrls(await this.readState(), body.urls ?? []);
+			return jsonResponse(await this.writeState(nextState));
+		}
+
 		if (url.pathname === "/workflow/start" && request.method === "POST") {
 			const body = (await request.json()) as { workflowId?: string };
 			const workflowId = body.workflowId?.trim() ?? "";
@@ -102,6 +136,20 @@ export class LaunchSessionDurableObject extends DurableObject<Env> {
 			}
 
 			const nextState = markWorkflowRunning(await this.readState(), workflowId);
+			return jsonResponse(await this.writeState(nextState));
+		}
+
+		if (url.pathname === "/research/update" && request.method === "POST") {
+			const body = (await request.json()) as {
+				stage?: ProjectState["researchStatus"]["stage"];
+				profiles?: CompetitorResearchResult["profiles"];
+				errors?: string[];
+			};
+			const nextState = updateResearchProgress(await this.readState(), {
+				stage: body.stage,
+				profiles: body.profiles,
+				errors: body.errors,
+			});
 			return jsonResponse(await this.writeState(nextState));
 		}
 
@@ -117,6 +165,15 @@ export class LaunchSessionDurableObject extends DurableObject<Env> {
 				body.workflowId ?? "",
 				body.sourceRevision ?? -1,
 				body.artifacts ?? {
+					competitorResearch: [],
+					marketInsights: [],
+					recommendedWedge: "",
+					differentiation: {
+						headline: "",
+						whyItWins: "",
+						messagingPillars: [],
+					},
+					researchErrors: [],
 					launchBrief: {
 						summary: "",
 						audience: "",
@@ -125,6 +182,34 @@ export class LaunchSessionDurableObject extends DurableObject<Env> {
 						successMetric: "",
 					},
 					checklist: [],
+					validationPlan: [],
+					customerQuestions: [],
+					outreachMessage: "",
+					decisionBoard: {
+						buildNow: [],
+						avoidNow: [],
+						proofPoints: [],
+						firstSalesMotion: "",
+					},
+					messagingKit: {
+						homepageHeadline: "",
+						homepageSubheadline: "",
+						elevatorPitch: "",
+						demoOpener: "",
+					},
+					cloudflarePlan: {
+						summary: "",
+						architecture: "",
+						services: [],
+						launchSequence: [],
+						edgeAdvantage: "",
+					},
+					implementationKit: {
+						productSpec: "",
+						codingPrompt: "",
+						agentPrompt: "",
+						starterTasks: [],
+					},
 					pitchDeck: [],
 					forecast: [],
 					websitePrototype: {
@@ -186,20 +271,75 @@ export class LaunchBriefWorkflow extends WorkflowEntrypoint<
 		step: WorkflowStep,
 	): Promise<LaunchArtifacts> {
 		try {
-			const artifacts = await step.do(
-				"generate-launch-brief",
+			await step.do("mark-researching", async () => {
+				await callSession<ProjectState>(
+					this.env,
+					event.payload.sessionId,
+					"/research/update",
+					{
+						method: "POST",
+						body: JSON.stringify({
+							stage:
+								event.payload.projectState.competitorUrls.length > 0
+									? "researching"
+									: "synthesizing",
+						}),
+					},
+				);
+
+				return { saved: true };
+			});
+
+			const research = await step.do(
+				"research-competitors",
 				{
 					retries: {
 						limit: 2,
 						delay: "10 seconds",
 						backoff: "linear",
 					},
-					timeout: "2 minutes",
+					timeout: "45 seconds",
 				},
-				() => generateLaunchArtifacts(this.env, event.payload.projectState),
+				() => researchCompetitors(event.payload.projectState.competitorUrls),
 			);
 
-			await step.do("persist-launch-brief", async () => {
+			await step.do("persist-competitor-research", async () => {
+				await callSession<ProjectState>(
+					this.env,
+					event.payload.sessionId,
+					"/research/update",
+					{
+						method: "POST",
+						body: JSON.stringify({
+							stage: "synthesizing",
+							profiles: research.profiles,
+							errors: research.errors,
+						}),
+					},
+				);
+
+				return { saved: true };
+			});
+
+			const artifacts = await step.do(
+				"generate-market-analysis",
+				{
+					retries: {
+						limit: 2,
+						delay: "8 seconds",
+						backoff: "linear",
+					},
+					timeout: "90 seconds",
+				},
+				() =>
+					generateLaunchArtifacts(
+						this.env,
+						event.payload.projectState,
+						research,
+					),
+			);
+
+			await step.do("persist-market-artifacts", async () => {
 				await callSession<ProjectState>(
 					this.env,
 					event.payload.sessionId,
@@ -260,7 +400,25 @@ async function handleResetRequest(request: Request, env: Env): Promise<Response>
 	return jsonResponse(state);
 }
 
-async function handleGenerateBriefRequest(
+async function handleCompetitorsRequest(
+	request: Request,
+	env: Env,
+): Promise<Response> {
+	const body = (await request.json()) as { sessionId?: string; urls?: string[] };
+	const sessionId = normalizeSessionId(body.sessionId);
+	if (!sessionId) {
+		return badRequest("A valid sessionId is required.");
+	}
+
+	const urls = normalizeCompetitorUrls(body.urls ?? []);
+	const state = await callSession<ProjectState>(env, sessionId, "/competitors", {
+		method: "POST",
+		body: JSON.stringify({ urls }),
+	});
+	return jsonResponse(state);
+}
+
+async function handleRunAnalysisRequest(
 	request: Request,
 	env: Env,
 ): Promise<Response> {
@@ -272,17 +430,17 @@ async function handleGenerateBriefRequest(
 
 	const currentState = await callSession<ProjectState>(env, sessionId, "/state");
 	if (!currentState.messages.some((message) => message.role === "user")) {
-		return badRequest("Add at least one product idea message before generating a launch pack.");
+		return badRequest("Add at least one product idea message before running analysis.");
 	}
 
 	if (currentState.workflowStatus.status === "running") {
 		return jsonResponse(
-			{ error: "A launch pack is already being generated for this session." },
+			{ error: "An analysis workflow is already running for this session." },
 			{ status: 409 },
 		);
 	}
 
-	const workflowId = `launch-${sessionId}-${Date.now()}`;
+	const workflowId = `analysis-${sessionId}-${Date.now()}`;
 	const state = await callSession<ProjectState>(env, sessionId, "/workflow/start", {
 		method: "POST",
 		body: JSON.stringify({ workflowId }),
@@ -314,7 +472,7 @@ async function handleGenerateBriefRequest(
 		});
 
 		return jsonResponse(
-			{ error: "Failed to start the launch-pack generation workflow." },
+			{ error: "Failed to start the market-analysis workflow." },
 			{ status: 500 },
 		);
 	}
@@ -330,20 +488,31 @@ async function handleChatRequest(
 	};
 
 	const sessionId = normalizeSessionId(body.sessionId);
-	const message = body.message?.trim() ?? "";
+	const rawMessage = body.message?.trim() ?? "";
+	const explicitUrls = extractUrlsFromText(rawMessage);
+	const message = stripUrlsFromText(rawMessage);
 
 	if (!sessionId) {
 		return badRequest("A valid sessionId is required.");
 	}
 
 	if (!message) {
-		return badRequest("A non-empty message is required.");
+		return badRequest("Describe the idea you want analyzed.");
 	}
 
-	const state = await callSession<ProjectState>(env, sessionId, "/turn/start", {
+	let state = await callSession<ProjectState>(env, sessionId, "/turn/start", {
 		method: "POST",
 		body: JSON.stringify({ message }),
 	});
+
+	if (explicitUrls.length > 0) {
+		state = await callSession<ProjectState>(env, sessionId, "/competitors", {
+			method: "POST",
+			body: JSON.stringify({
+				urls: normalizeCompetitorUrls([...state.competitorUrls, ...explicitUrls]),
+			}),
+		});
+	}
 
 	let modelStream: ReadableStream | null = null;
 
@@ -410,10 +579,39 @@ async function finalizeChatTurn(
 			body: JSON.stringify({ assistantMessage }),
 		});
 		const snapshot = deriveSnapshotFromConversation(state);
-		return await callSession<ProjectState>(env, sessionId, "/snapshot/merge", {
+		let mergedState = await callSession<ProjectState>(env, sessionId, "/snapshot/merge", {
 			method: "POST",
 			body: JSON.stringify({ snapshot }),
 		});
+
+		if (mergedState.competitorUrls.length === 0) {
+			const suggestedUrls = suggestCompetitorUrlsFromIdea(
+				[
+					mergedState.ideaName,
+					mergedState.oneLiner,
+					mergedState.problem,
+					...mergedState.messages
+						.filter((message) => message.role === "user")
+						.map((message) => message.content),
+				]
+					.filter(Boolean)
+					.join(". "),
+			);
+
+			if (suggestedUrls.length > 0) {
+				mergedState = await callSession<ProjectState>(env, sessionId, "/competitors", {
+					method: "POST",
+					body: JSON.stringify({
+						urls: normalizeCompetitorUrls([
+							...mergedState.competitorUrls,
+							...suggestedUrls,
+						]),
+					}),
+				});
+			}
+		}
+
+		return mergedState;
 	} catch (error) {
 		console.error("Failed to finalize the chat turn:", error);
 		return callSession<ProjectState>(env, sessionId, "/state");

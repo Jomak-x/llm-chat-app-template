@@ -1,174 +1,241 @@
-# LaunchLens AI
+# LaunchLens AI App Auditor
 
-LaunchLens AI is a Cloudflare-native application for pressure-testing an AI product idea and turning it into a reviewer-ready launch pack. The frontend is built with React, TypeScript, Tailwind CSS, and Vite, while the backend runs on a Cloudflare Worker with Workers AI, a Durable Object, and Workflows. A reviewer lands on a focused product page first, enters a dedicated workspace second, then types or speaks an idea, refines it over chat, builds a concept preview plus launch strategy, and refreshes to confirm the session state persists.
+LaunchLens is a Cloudflare-native AI app auditor for the moment before a team starts building.
 
-This project was built for Cloudflare's AI-powered application assignment and is designed to be easy to understand and demo immediately.
+You paste an AI app idea or product URL, and LaunchLens turns it into:
 
-## Primary Use Case
+- a sharper market wedge
+- likely competitors and market signals
+- a Cloudflare architecture recommendation
+- a markdown build handoff for another engineer or coding agent
+- an interactive HTML launch page for fast review
 
-This app is meant for the moment when an idea is still fuzzy but you want something more concrete than notes:
+This makes the project useful for a Cloudflare reviewer because it does more than chat. It helps answer: "Should this exist, what should it look like, and how should it be built on Cloudflare?"
 
-- a founder wants to pressure-test a product concept
-- a product person wants a fast prototype direction
-- a reviewer wants to see chat, memory, workflow orchestration, and generated output in one app
+## Demo Screens
 
-Instead of stopping at conversation, the app turns the idea into a structured brief, a concept preview, and a 30-day launch pack.
+![LaunchLens landing page](docs/screenshots/landing-overview.svg)
 
-## Assignment Fit
+![LaunchLens workspace](docs/screenshots/workspace-overview.svg)
 
-This project satisfies each required component from the assignment:
+## Why This Project Makes Sense
 
-| Assignment requirement | How this project satisfies it |
-| --- | --- |
-| `LLM` | Uses `Llama 3.3` on `Workers AI` for the live product-strategy chat in `src/ai.ts`. |
-| `Workflow / coordination` | Uses a `Worker` for orchestration, a `Durable Object` for per-session coordination and persistence, and a `Workflow` for asynchronous launch-pack generation in `src/index.ts`. |
-| `User input via chat or voice` | Provides a React chat workspace with starter prompts, streaming responses, and browser-based voice input in `app/src/App.tsx`. |
-| `Memory or state` | Stores chat history, extracted product fields, workflow status, and generated artifacts in a persistent `Durable Object` session. |
+This is not a generic "prompt in, website out" demo.
 
-## What The App Does
+LaunchLens acts like a practical Cloudflare solutions copilot:
 
-The app acts like an AI product strategist and launch copilot:
+- it chats with the user and keeps the evolving brief in memory
+- it auto-suggests relevant public competitors from the idea
+- it researches those sources and extracts useful signals
+- it synthesizes the market into a wedge and launch recommendation
+- it recommends which Cloudflare products fit the app and why
+- it exports a builder-ready handoff so the next engineer can move fast
 
-- the user enters or speaks a rough startup or product idea
-- the assistant helps sharpen audience, problem, solution, MVP, and risks
-- the app derives and stores a structured "Launch Snapshot" after each chat turn
-- the user triggers a background workflow that assembles a launch brief, checklist, forecast, and a deterministic concept preview from the saved snapshot
-- the same session reloads after refresh because the state is stored server-side and the browser keeps the session id locally
+That makes it useful for:
 
-## Architecture
+- a Cloudflare engineer reviewing whether the architecture choice is thoughtful
+- a builder deciding whether an AI product is worth building
+- a reviewer who wants a quick, demoable, end-to-end Cloudflare AI app
 
-### Frontend
+## What The User Gets
 
-- React + TypeScript single-page frontend built with Vite
-- Tailwind CSS interface with a dedicated landing page and separate workspace route
-- Guided chat interface with starter prompts
-- Voice input using the browser's speech recognition API when available
-- Streaming assistant responses over SSE
-- Persistent browser session id in local storage
-- Live Launch Snapshot panel derived from the conversation
-- Workflow status and generated concept-preview display
+- `Summary`
+  - idea name, one-liner, target user, problem, wedge
+- `Competition`
+  - likely competitors, positioning signals, pricing cues, market insights
+- `Build on Cloudflare`
+  - recommended services, architecture, launch sequence, implementation prompts
+- `Launch Page`
+  - an interactive HTML artifact for quick visual review
+- `Exports`
+  - markdown build kit
+  - market brief
+  - downloadable HTML launch page
 
-### Backend
+## How It Works
 
-- `POST /api/chat`
-  - appends the user message to the session
-  - streams the AI response back to the browser
-  - persists the assistant response before the stream finishes
-  - returns the updated session state so the UI stays in sync without extra fetch loops
-- `GET /api/state`
-  - returns the persisted project state for the current session
-- `POST /api/generate-brief`
-  - validates that the session has user input
-  - starts a Cloudflare Workflow run against the saved snapshot
-  - produces a concept preview, launch brief, forecast, and checklist from the saved state
-- `POST /api/reset`
-  - clears the session so the reviewer can start over
+1. Open the workspace.
+2. Paste an AI app idea or product URL.
+3. Chat or use voice input to sharpen the brief.
+4. Let LaunchLens auto-suggest likely competitors.
+5. Run `Audit & Plan`.
+6. Review the market read, Cloudflare plan, and build handoff.
+7. Export the markdown build kit or the launch page.
 
-### Cloudflare services used
+## Why The HTML Artifact Exists
+
+The HTML output is intentionally not presented as the final product.
+
+It exists because reviewers and teammates often need something more concrete than text, but much lighter than a full implementation. The generated launch page gives them:
+
+- a fast visual artifact to open immediately
+- the core pitch and first user-flow framing
+- a way to pressure-test whether the idea is understandable
+
+The markdown build kit is the real implementation handoff. The HTML launch page is the fast review surface.
+
+## Assignment / Rubric Coverage
+
+This project directly satisfies the Cloudflare assignment prompt:
+
+| Prompt requirement | How LaunchLens satisfies it | Where it is implemented |
+| --- | --- | --- |
+| `LLM` | Uses `Llama 3.3` on `Workers AI` for conversational idea shaping, market synthesis, Cloudflare recommendations, and artifact generation. | [src/ai.ts](src/ai.ts) |
+| `Workflow / coordination` | Uses a Cloudflare `Worker` for orchestration, a `Durable Object` for per-session coordination and persistence, and a `Workflow` for background audit + artifact generation. | [src/index.ts](src/index.ts), [wrangler.jsonc](wrangler.jsonc) |
+| `User input via chat or voice` | The frontend supports typed chat, starter scenarios, and browser voice input. | [app/src/App.tsx](app/src/App.tsx) |
+| `Memory or state` | Session memory stores the chat history, structured brief, competitor evidence, workflow status, and generated outputs. | [src/state.ts](src/state.ts), [src/types.ts](src/types.ts) |
+| `README.md with clear instructions` | This README includes product overview, setup, local run steps, demo flow, and verification. | [README.md](README.md) |
+| `PROMPTS.md` | AI-assisted prompts used during development are documented. | [PROMPTS.md](PROMPTS.md) |
+
+## Submission Checklist
+
+Cloudflare's prompt also requires a few repository-level details. For this repo:
+
+- GitHub repository name should start with `cf_ai_`
+- `README.md` is included
+- `PROMPTS.md` is included
+- the implementation is original to this repository
+
+If you are submitting this, make sure the pushed GitHub repo name is something like:
+
+- `cf_ai_launchlens`
+- `cf_ai_cloudflare_app_auditor`
+
+## Repository Structure
+
+```text
+app/                      React frontend
+docs/screenshots/         README demo visuals
+src/                      Worker, AI logic, state, research
+test/                     UI, state, AI, and research tests
+wrangler.jsonc            Cloudflare bindings and runtime config
+PROMPTS.md                AI-assisted development prompts
+README.md                 Project docs and run instructions
+```
+
+## Cloudflare Services Used
 
 - `Workers AI`
+  - Llama 3.3 chat + synthesis
 - `Durable Objects`
+  - per-session memory and coordination
 - `Workflows`
-- `Worker static assets`
+  - background audit and artifact generation
+- `Workers static assets`
+  - serves the built React frontend
 
-## Running Locally
+## Local Setup
 
 ### Prerequisites
 
 - Node.js `18+`
-- A Cloudflare account with `Workers AI` access
-- Wrangler CLI access through the project dependency
-- Cloudflare authentication configured locally, for example with:
+- npm
+- a Cloudflare account with access to Workers AI
+- Wrangler installed through the project dependencies
 
-```bash
-npx wrangler login
-```
-
-### Install
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### Generate Worker Types
+### 2. Authenticate with Cloudflare
+
+```bash
+npx wrangler login
+```
+
+### 3. Generate Worker types
 
 ```bash
 npm run cf-typegen
 ```
 
-### Start The App
+### 4. Start the app locally
 
 ```bash
 npm run dev
 ```
 
-The local app runs at `http://localhost:8787`.
+The app runs through Wrangler locally at:
 
-## Quick Demo Flow
+```text
+http://localhost:8787
+```
 
-1. Open `http://localhost:8787`.
-2. Click `Open Workspace` or choose a starter prompt.
-3. Chat for a few turns until the `Launch Snapshot` fills in.
-4. Optionally use `Voice` to dictate a product idea or follow-up.
-5. Click `Build Launch Pack`.
-6. Wait for the workflow to finish and inspect the concept preview, launch brief, forecast, and checklist.
-7. Refresh the page to confirm that the session state persists.
-8. Click `New Session` to reset and return to the landing page.
+### 5. Optional: dry-run the production build
+
+```bash
+npm run check
+```
+
+## Local Demo Script
+
+If someone from Cloudflare clones the repo and wants the shortest path to value:
+
+1. Run `npm install`
+2. Run `npx wrangler login`
+3. Run `npm run cf-typegen`
+4. Run `npm run dev`
+5. Open `http://localhost:8787`
+6. Click `Open Workspace`
+7. Choose a starter scenario or paste an idea
+8. Click `Run Audit & Plan`
+9. Inspect:
+   - the market wedge
+   - the competitor scan
+   - the Cloudflare build plan
+   - the implementation kit
+   - the interactive launch page
 
 ## Verification
 
-These checks were run during implementation:
+These commands were run successfully:
 
 ```bash
 npm test -- --run
 npm run check
 ```
 
-What those checks cover:
+What they cover:
 
-- TypeScript compilation
-- Vite production build for the React + Tailwind frontend
-- Wrangler dry-run build
-- UI smoke tests for the main landing-page and workspace actions, including `Open Workspace`, sample-prompt handoff, chat send, launch-pack generation, `Back To Landing`, and `New Session`
-- State transition tests for message persistence, snapshot merging, workflow completion, stale workflow protection, and reset behavior
+- frontend interaction tests
+- state transition tests
+- AI fallback tests
+- research-layer tests
+- Vite production build
+- Worker TypeScript validation
+- Wrangler dry-run packaging
 
-## Reliability Notes
+Note: in this sandbox, Wrangler prints a known warning when it tries to write logs under `~/.wrangler`, but the dry-run build still completes successfully.
 
-- The chat path uses one LLM call for the streamed assistant response.
-- The live launch snapshot is derived locally from the saved conversation to avoid adding a second inference call after every message.
-- The streamed chat response now finalizes session state before the stream closes, which removes the extra post-chat sync loop from the frontend.
-- The workflow renders the launch pack deterministically from the saved session state, which avoids the timeout-prone "generate a whole site" pattern and keeps the demo fast.
-- Voice input uses the browser Web Speech API, so support depends on the browser.
+## Production-Readiness Notes
 
-Note: in sandboxed environments Wrangler may print a warning about writing logs under `~/.wrangler`, but the build and dry-run can still complete successfully.
+This repo includes a few small hygiene touches for push readiness:
 
-## Project Structure
+- `.gitignore` covers Node, Wrangler, editor files, and local env files
+- `.editorconfig` sets consistent formatting defaults
+- the UI copy is aligned around one product story
+- the package metadata and Wrangler app name match the current product
+- tests cover the main user flows and artifact generation path
 
-```text
-app/
-  index.html      Vite entry HTML
-  src/App.tsx     Landing page, workspace route, and client state flow
-  src/components/ Reusable markdown and forecast UI components
-  src/lib/types.ts Frontend API and state types
-  src/styles.css  Tailwind theme and utility layers
-src/
-  ai.ts           Workers AI chat prompts and deterministic concept-preview helpers
-  index.ts        Worker routes, Durable Object, and Workflow classes
-  state.ts        Pure state transition helpers
-  types.ts        Shared types
-test/
-  app.test.tsx    UI interaction smoke tests for buttons and core flows
-  state.test.ts   State transition verification
-  ai.test.ts      Launch-artifact generation coverage
-PROMPTS.md        AI prompts used during brainstorming and implementation
-```
+## Best Files To Review
 
-## AI-Assisted Development
+If you only want the highest-signal files:
 
-AI-assisted coding was used for brainstorming, planning, and implementation support. The prompts used are documented in `PROMPTS.md`.
+- [app/src/App.tsx](app/src/App.tsx)
+  - the main product UX and workspace flow
+- [src/index.ts](src/index.ts)
+  - Worker routes, Durable Object, and Workflow orchestration
+- [src/ai.ts](src/ai.ts)
+  - LLM prompts, synthesis, Cloudflare planning, HTML launch-page generation
+- [src/state.ts](src/state.ts)
+  - persistent memory model and local snapshot derivation
+- [src/research.ts](src/research.ts)
+  - public-web research adapter and competitor suggestions
+- [test/app.test.tsx](test/app.test.tsx)
+  - end-to-end UI coverage for the main product flow
 
-## Submission Notes
+## Originality Note
 
-- Cloudflare's assignment asks for the repository name to start with `cf_ai_`. For submission, this repo should be published with a name such as `cf_ai_idea_to_launch_agent`.
-- This repository includes a `README.md` with running instructions and architecture notes, and a `PROMPTS.md` file documenting AI assistance.
-- The final application logic in this repo is original work built on top of a generic Cloudflare starter template.
+This project was built specifically for this submission. AI-assisted coding was used during development, and the prompts used are documented in [PROMPTS.md](PROMPTS.md), but the product framing, implementation, workflow, and repository content are original to this repo.

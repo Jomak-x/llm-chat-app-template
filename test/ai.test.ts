@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateLaunchArtifacts } from "../src/ai";
+import { createEmptyResearchResult, generateLaunchArtifacts } from "../src/ai";
 import { createDefaultState, appendUserMessage, mergeSnapshot } from "../src/state";
 
 afterEach(() => {
@@ -34,10 +34,26 @@ describe("AI artifact generation fallbacks", () => {
 			},
 		} as unknown as Pick<Cloudflare.Env, "AI">;
 
-		const artifacts = await generateLaunchArtifacts(env, state);
+		const artifacts = await generateLaunchArtifacts(
+			env,
+			state,
+			createEmptyResearchResult(),
+		);
 
 		expect(artifacts.launchBrief.summary).toContain("HotelFlow");
 		expect(artifacts.checklist.length).toBeGreaterThan(0);
+		expect(artifacts.validationPlan.length).toBeGreaterThan(0);
+		expect(artifacts.customerQuestions.length).toBeGreaterThan(0);
+		expect(artifacts.outreachMessage).toContain("HotelFlow");
+		expect(artifacts.decisionBoard.buildNow.length).toBeGreaterThan(0);
+		expect(artifacts.decisionBoard.firstSalesMotion.length).toBeGreaterThan(0);
+		expect(artifacts.messagingKit.homepageHeadline.length).toBeGreaterThan(0);
+		expect(artifacts.messagingKit.demoOpener.length).toBeGreaterThan(0);
+		expect(artifacts.cloudflarePlan.summary).toContain("Cloudflare");
+		expect(artifacts.cloudflarePlan.services.length).toBeGreaterThan(0);
+		expect(artifacts.implementationKit.productSpec).toContain("HotelFlow");
+		expect(artifacts.implementationKit.codingPrompt).toContain("Cloudflare-native");
+		expect(artifacts.implementationKit.starterTasks.length).toBeGreaterThan(0);
 		expect(artifacts.pitchDeck.length).toBeGreaterThan(0);
 		expect(artifacts.forecast.length).toBe(5);
 		expect(artifacts.websitePrototype.title).toContain("HotelFlow");

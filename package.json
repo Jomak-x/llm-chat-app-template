@@ -1,8 +1,8 @@
 {
-	"name": "idea-to-launch-agent",
-	"description": "A Cloudflare-native AI app that turns rough ideas into reviewer-ready launch packs",
+	"name": "launchlens-ai-app-auditor",
+	"description": "A Cloudflare-native AI app auditor that turns an idea into a market read, Cloudflare architecture plan, and builder handoff",
 	"cloudflare": {
-		"label": "LaunchLens AI",
+		"label": "LaunchLens AI App Auditor",
 		"products": [
 			"Workers",
 			"Workers AI",

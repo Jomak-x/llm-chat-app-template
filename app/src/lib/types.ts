@@ -11,6 +11,66 @@ export interface LaunchBrief {
 	successMetric: string;
 }
 
+export interface CompetitorProfile {
+	url: string;
+	hostname: string;
+	brandName: string;
+	title: string;
+	summary: string;
+	positioning: string;
+	targetAudience: string;
+	pricingHints: string[];
+	keyFeatures: string[];
+	cta: string;
+	status: "complete" | "failed";
+	error?: string;
+}
+
+export interface MarketInsight {
+	title: string;
+	description: string;
+}
+
+export interface DifferentiationStrategy {
+	headline: string;
+	whyItWins: string;
+	messagingPillars: string[];
+}
+
+export interface DecisionBoard {
+	buildNow: string[];
+	avoidNow: string[];
+	proofPoints: string[];
+	firstSalesMotion: string;
+}
+
+export interface MessagingKit {
+	homepageHeadline: string;
+	homepageSubheadline: string;
+	elevatorPitch: string;
+	demoOpener: string;
+}
+
+export interface CloudflareServiceRecommendation {
+	service: string;
+	why: string;
+}
+
+export interface CloudflarePlan {
+	summary: string;
+	architecture: string;
+	services: CloudflareServiceRecommendation[];
+	launchSequence: string[];
+	edgeAdvantage: string;
+}
+
+export interface ImplementationKit {
+	productSpec: string;
+	codingPrompt: string;
+	agentPrompt: string;
+	starterTasks: string[];
+}
+
 export interface PitchDeckSlide {
 	title: string;
 	headline: string;
@@ -36,6 +96,20 @@ export interface WorkflowStatus {
 	updatedAt: string | null;
 }
 
+export interface ResearchStatus {
+	stage:
+		| "idle"
+		| "queued"
+		| "researching"
+		| "synthesizing"
+		| "complete"
+		| "errored";
+	totalCompetitors: number;
+	completedCompetitors: number;
+	failedCompetitors: number;
+	updatedAt: string | null;
+}
+
 export interface ProjectState {
 	revision: number;
 	messages: ChatMessage[];
@@ -48,9 +122,23 @@ export interface ProjectState {
 	mvpScope: string[];
 	risks: string[];
 	openQuestions: string[];
+	competitorUrls: string[];
+	competitorResearch: CompetitorProfile[];
+	marketInsights: MarketInsight[];
+	recommendedWedge: string;
+	differentiation: DifferentiationStrategy | null;
+	researchStatus: ResearchStatus;
+	researchErrors: string[];
 	workflowStatus: WorkflowStatus;
 	launchBrief: LaunchBrief | null;
 	checklist: string[];
+	validationPlan: string[];
+	customerQuestions: string[];
+	outreachMessage: string;
+	decisionBoard: DecisionBoard | null;
+	messagingKit: MessagingKit | null;
+	cloudflarePlan: CloudflarePlan | null;
+	implementationKit: ImplementationKit | null;
 	pitchDeck: PitchDeckSlide[];
 	forecast: ForecastPoint[];
 	websitePrototype: WebsitePrototype | null;
