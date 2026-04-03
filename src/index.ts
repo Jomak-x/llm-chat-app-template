@@ -5,342 +5,299 @@ import {
 	type WorkflowStep,
 } from "cloudflare:workers";
 import {
-	buildChatMessages,
 	CHAT_MODEL,
-	generateLaunchArtifacts,
+	buildChatMessages,
+	extractConceptsAndWeakAreas,
+	generateFlashcards,
+	generateQuiz,
+	summarizeMaterial,
 } from "./ai";
 import {
-	extractUrlsFromText,
-	normalizeCompetitorUrls,
-	researchCompetitors,
-	stripUrlsFromText,
-	suggestCompetitorUrlsFromIdea,
-} from "./research";
-import {
+	STATE_KEY,
+	addMaterial,
 	appendAssistantMessage,
 	appendUserMessage,
-	completeWorkflow,
-	createDefaultState,
-	deriveSnapshotFromConversation,
+	applyMaterialInsights,
+	createSessionState,
 	failWorkflow,
 	markWorkflowRunning,
-	mergeSnapshot,
-	setCompetitorUrls,
-	resetState,
-	STATE_KEY,
-	updateResearchProgress,
+	saveFlashcards,
+	saveQuiz,
 } from "./state";
-import {
-	CompetitorResearchResult,
+import type {
 	Env,
-	LaunchArtifacts,
-	LaunchWorkflowParams,
-	ProjectState,
-	SnapshotExtraction,
+	FlashcardsResponse,
+	MaterialIngestionWorkflowParams,
+	MaterialInsights,
+	QuizResponse,
+	StudyMaterial,
+	StudySession,
 } from "./types";
 
 const encoder = new TextEncoder();
 
 export default {
-	async fetch(
-		request: Request,
-		env: Env,
-	): Promise<Response> {
+	async fetch(request: Request, env: Env): Promise<Response> {
+		if (request.method === "OPTIONS") {
+			return withCorsHeaders(new Response(null, { status: 204 }), request, env);
+		}
+
 		const url = new URL(request.url);
+		const route = matchRoute(url.pathname);
 
-		if (url.pathname === "/" || !url.pathname.startsWith("/api/")) {
-			return env.ASSETS.fetch(request);
+		if (!route) {
+			return jsonResponse({ error: "Not found" }, request, env, { status: 404 });
 		}
 
-		if (url.pathname === "/api/state" && request.method === "GET") {
-			return handleStateRequest(url, env);
+		try {
+			if (route.kind === "create-session" && request.method === "POST") {
+				return handleCreateSession(env, request);
+			}
+
+			if (route.kind === "session" && request.method === "GET") {
+				return handleGetSession(env, request, route.sessionId);
+			}
+
+			if (route.kind === "material" && request.method === "POST") {
+				return handleAddMaterial(env, request, route.sessionId);
+			}
+
+			if (route.kind === "chat" && request.method === "POST") {
+				return handleChat(env, request, route.sessionId);
+			}
+
+			if (route.kind === "flashcards" && request.method === "POST") {
+				return handleFlashcards(env, request, route.sessionId);
+			}
+
+			if (route.kind === "quiz" && request.method === "POST") {
+				return handleQuiz(env, request, route.sessionId);
+			}
+		} catch (error) {
+			console.error("Worker request failed:", error);
+			return jsonResponse(
+				{ error: "The AI Learning Coach API hit an unexpected error." },
+				request,
+				env,
+				{ status: 500 },
+			);
 		}
 
-		if (url.pathname === "/api/chat" && request.method === "POST") {
-			return handleChatRequest(request, env);
-		}
-
-		if (url.pathname === "/api/competitors" && request.method === "POST") {
-			return handleCompetitorsRequest(request, env);
-		}
-
-		if (
-			(url.pathname === "/api/run-analysis" ||
-				url.pathname === "/api/generate-brief") &&
-			request.method === "POST"
-		) {
-			return handleRunAnalysisRequest(request, env);
-		}
-
-		if (url.pathname === "/api/reset" && request.method === "POST") {
-			return handleResetRequest(request, env);
-		}
-
-		return new Response("Not found", { status: 404 });
+		return jsonResponse({ error: "Method not allowed" }, request, env, { status: 405 });
 	},
 } satisfies ExportedHandler<Env>;
 
-export class LaunchSessionDurableObject extends DurableObject<Env> {
+type RouteMatch =
+	| { kind: "create-session" }
+	| { kind: "session"; sessionId: string }
+	| { kind: "material"; sessionId: string }
+	| { kind: "chat"; sessionId: string }
+	| { kind: "flashcards"; sessionId: string }
+	| { kind: "quiz"; sessionId: string };
+
+function matchRoute(pathname: string): RouteMatch | null {
+	const parts = pathname.split("/").filter(Boolean);
+
+	if (parts.length === 2 && parts[0] === "api" && parts[1] === "session") {
+		return { kind: "create-session" };
+	}
+
+	if (parts.length === 3 && parts[0] === "api" && parts[1] === "session") {
+		const sessionId = normalizeSessionId(parts[2]);
+		return sessionId ? { kind: "session", sessionId } : null;
+	}
+
+	if (parts.length === 4 && parts[0] === "api" && parts[1] === "session") {
+		const sessionId = normalizeSessionId(parts[2]);
+		if (!sessionId) {
+			return null;
+		}
+
+		switch (parts[3]) {
+			case "material":
+				return { kind: "material", sessionId };
+			case "chat":
+				return { kind: "chat", sessionId };
+			case "flashcards":
+				return { kind: "flashcards", sessionId };
+			case "quiz":
+				return { kind: "quiz", sessionId };
+			default:
+				return null;
+		}
+	}
+
+	return null;
+}
+
+export class LearningCoachSessionDurableObject extends DurableObject<Env> {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
+		const sessionId = request.headers.get("x-session-id")?.trim() || this.ctx.id.toString();
 
-		if (url.pathname === "/state" && request.method === "GET") {
-			return jsonResponse(await this.readState());
+		if (url.pathname === "/session" && request.method === "GET") {
+			return new Response(JSON.stringify(await this.readState(sessionId)), {
+				headers: { "content-type": "application/json; charset=utf-8" },
+			});
 		}
 
-		if (url.pathname === "/turn/start" && request.method === "POST") {
-			const body = (await request.json()) as { message?: string };
-			const nextState = appendUserMessage(await this.readState(), body.message ?? "");
-			return jsonResponse(await this.writeState(nextState));
+		if (url.pathname === "/messages/user" && request.method === "POST") {
+			const body = (await request.json()) as { content?: string };
+			const state = appendUserMessage(await this.readState(sessionId), body.content ?? "");
+			return this.writeJson(state);
 		}
 
-		if (url.pathname === "/turn/complete" && request.method === "POST") {
-			const body = (await request.json()) as { assistantMessage?: string };
-			const nextState = appendAssistantMessage(
-				await this.readState(),
-				body.assistantMessage ?? "",
+		if (url.pathname === "/messages/assistant" && request.method === "POST") {
+			const body = (await request.json()) as { content?: string };
+			const state = appendAssistantMessage(await this.readState(sessionId), body.content ?? "");
+			return this.writeJson(state);
+		}
+
+		if (url.pathname === "/materials" && request.method === "POST") {
+			const body = (await request.json()) as {
+				id?: string;
+				title?: string;
+				content?: string;
+			};
+			const result = addMaterial(await this.readState(sessionId), {
+				id: body.id,
+				title: body.title,
+				content: body.content ?? "",
+			});
+
+			await this.ctx.storage.put(STATE_KEY, result.state);
+			return new Response(
+				JSON.stringify({
+					session: result.state,
+					material: result.material,
+				}),
+				{ headers: { "content-type": "application/json; charset=utf-8" } },
 			);
-			return jsonResponse(await this.writeState(nextState));
-		}
-
-		if (url.pathname === "/snapshot/merge" && request.method === "POST") {
-			const body = (await request.json()) as { snapshot?: SnapshotExtraction };
-			const nextState = mergeSnapshot(
-				await this.readState(),
-				body.snapshot ?? {
-					ideaName: "",
-					oneLiner: "",
-					targetUser: "",
-					problem: "",
-					solution: "",
-					keyFeatures: [],
-					mvpScope: [],
-					risks: [],
-					openQuestions: [],
-				},
-			);
-			return jsonResponse(await this.writeState(nextState));
-		}
-
-		if (url.pathname === "/competitors" && request.method === "POST") {
-			const body = (await request.json()) as { urls?: string[] };
-			const nextState = setCompetitorUrls(await this.readState(), body.urls ?? []);
-			return jsonResponse(await this.writeState(nextState));
 		}
 
 		if (url.pathname === "/workflow/start" && request.method === "POST") {
-			const body = (await request.json()) as { workflowId?: string };
-			const workflowId = body.workflowId?.trim() ?? "";
-			if (!workflowId) {
-				return jsonResponse({ error: "workflowId is required." }, { status: 400 });
-			}
-
-			const nextState = markWorkflowRunning(await this.readState(), workflowId);
-			return jsonResponse(await this.writeState(nextState));
-		}
-
-		if (url.pathname === "/research/update" && request.method === "POST") {
 			const body = (await request.json()) as {
-				stage?: ProjectState["researchStatus"]["stage"];
-				profiles?: CompetitorResearchResult["profiles"];
-				errors?: string[];
+				workflowId?: string;
+				materialId?: string;
 			};
-			const nextState = updateResearchProgress(await this.readState(), {
-				stage: body.stage,
-				profiles: body.profiles,
-				errors: body.errors,
-			});
-			return jsonResponse(await this.writeState(nextState));
+			const state = markWorkflowRunning(
+				await this.readState(sessionId),
+				body.workflowId ?? "",
+				body.materialId ?? "",
+			);
+			return this.writeJson(state);
 		}
 
 		if (url.pathname === "/workflow/complete" && request.method === "POST") {
 			const body = (await request.json()) as {
 				workflowId?: string;
-				sourceRevision?: number;
-				artifacts?: LaunchArtifacts;
+				materialId?: string;
+				insights?: MaterialInsights;
 			};
-
-			const nextState = completeWorkflow(
-				await this.readState(),
+			const state = applyMaterialInsights(
+				await this.readState(sessionId),
 				body.workflowId ?? "",
-				body.sourceRevision ?? -1,
-				body.artifacts ?? {
-					competitorResearch: [],
-					marketInsights: [],
-					recommendedWedge: "",
-					differentiation: {
-						headline: "",
-						whyItWins: "",
-						messagingPillars: [],
-					},
-					researchErrors: [],
-					launchBrief: {
-						summary: "",
-						audience: "",
-						valueProposition: "",
-						launchStrategy: "",
-						successMetric: "",
-					},
-					checklist: [],
-					validationPlan: [],
-					customerQuestions: [],
-					outreachMessage: "",
-					decisionBoard: {
-						buildNow: [],
-						avoidNow: [],
-						proofPoints: [],
-						firstSalesMotion: "",
-					},
-					messagingKit: {
-						homepageHeadline: "",
-						homepageSubheadline: "",
-						elevatorPitch: "",
-						demoOpener: "",
-					},
-					cloudflarePlan: {
-						summary: "",
-						architecture: "",
-						services: [],
-						launchSequence: [],
-						edgeAdvantage: "",
-					},
-					implementationKit: {
-						productSpec: "",
-						codingPrompt: "",
-						agentPrompt: "",
-						starterTasks: [],
-					},
-					pitchDeck: [],
-					forecast: [],
-					websitePrototype: {
-						title: "",
-						summary: "",
-						html: "",
-					},
-				},
+				body.materialId ?? "",
+				body.insights ?? { summary: "", concepts: [], weakAreas: [] },
 			);
-			return jsonResponse(await this.writeState(nextState));
+			return this.writeJson(state);
 		}
 
 		if (url.pathname === "/workflow/error" && request.method === "POST") {
 			const body = (await request.json()) as {
 				workflowId?: string;
-				sourceRevision?: number;
+				materialId?: string;
 				error?: string;
 			};
-
-			const nextState = failWorkflow(
-				await this.readState(),
+			const state = failWorkflow(
+				await this.readState(sessionId),
 				body.workflowId ?? "",
-				body.sourceRevision ?? -1,
-				body.error ?? "The launch brief workflow failed.",
+				body.materialId ?? "",
+				body.error ?? "",
 			);
-			return jsonResponse(await this.writeState(nextState));
+			return this.writeJson(state);
 		}
 
-		if (url.pathname === "/reset" && request.method === "POST") {
-			return jsonResponse(await this.writeState(resetState()));
+		if (url.pathname === "/flashcards" && request.method === "POST") {
+			const body = (await request.json()) as FlashcardsResponse;
+			const state = saveFlashcards(await this.readState(sessionId), body.flashcards ?? []);
+			return this.writeJson(state);
+		}
+
+		if (url.pathname === "/quiz" && request.method === "POST") {
+			const body = (await request.json()) as QuizResponse;
+			const state = saveQuiz(await this.readState(sessionId), body.quiz ?? []);
+			return this.writeJson(state);
 		}
 
 		return new Response("Not found", { status: 404 });
 	}
 
-	private async readState(): Promise<ProjectState> {
-		const savedState = await this.ctx.storage.get<ProjectState>(STATE_KEY);
-		if (savedState) {
-			return savedState;
+	private async readState(sessionId: string): Promise<StudySession> {
+		const existing = await this.ctx.storage.get<StudySession>(STATE_KEY);
+		if (existing) {
+			return existing;
 		}
 
-		const nextState = createDefaultState();
-		await this.ctx.storage.put(STATE_KEY, nextState);
-		return nextState;
+		const initial = createSessionState(sessionId);
+		await this.ctx.storage.put(STATE_KEY, initial);
+		return initial;
 	}
 
-	private async writeState(state: ProjectState): Promise<ProjectState> {
+	private async writeJson(state: StudySession): Promise<Response> {
 		await this.ctx.storage.put(STATE_KEY, state);
-		return state;
+		return new Response(JSON.stringify(state), {
+			headers: { "content-type": "application/json; charset=utf-8" },
+		});
 	}
 }
 
-export class LaunchBriefWorkflow extends WorkflowEntrypoint<
+export class MaterialIngestionWorkflow extends WorkflowEntrypoint<
 	Env,
-	LaunchWorkflowParams
+	MaterialIngestionWorkflowParams
 > {
 	async run(
-		event: Readonly<WorkflowEvent<LaunchWorkflowParams>>,
+		event: Readonly<WorkflowEvent<MaterialIngestionWorkflowParams>>,
 		step: WorkflowStep,
-	): Promise<LaunchArtifacts> {
+	): Promise<MaterialInsights> {
 		try {
-			await step.do("mark-researching", async () => {
-				await callSession<ProjectState>(
-					this.env,
-					event.payload.sessionId,
-					"/research/update",
-					{
-						method: "POST",
-						body: JSON.stringify({
-							stage:
-								event.payload.projectState.competitorUrls.length > 0
-									? "researching"
-									: "synthesizing",
-						}),
-					},
-				);
-
-				return { saved: true };
-			});
-
-			const research = await step.do(
-				"research-competitors",
-				{
-					retries: {
-						limit: 2,
-						delay: "10 seconds",
-						backoff: "linear",
-					},
-					timeout: "45 seconds",
-				},
-				() => researchCompetitors(event.payload.projectState.competitorUrls),
+			const session = await step.do("load-session", async () =>
+				callSession<StudySession>(this.env, event.payload.sessionId, "/session"),
 			);
 
-			await step.do("persist-competitor-research", async () => {
-				await callSession<ProjectState>(
-					this.env,
-					event.payload.sessionId,
-					"/research/update",
-					{
-						method: "POST",
-						body: JSON.stringify({
-							stage: "synthesizing",
-							profiles: research.profiles,
-							errors: research.errors,
-						}),
-					},
-				);
+			const material = session.materials.find(
+				(candidate) => candidate.id === event.payload.materialId,
+			);
+			if (!material) {
+				throw new Error("Material not found for ingestion workflow.");
+			}
 
-				return { saved: true };
-			});
-
-			const artifacts = await step.do(
-				"generate-market-analysis",
+			const summary = await step.do(
+				"summarize-material",
 				{
-					retries: {
-						limit: 2,
-						delay: "8 seconds",
-						backoff: "linear",
-					},
+					retries: { limit: 2, delay: "5 seconds", backoff: "linear" },
 					timeout: "90 seconds",
 				},
-				() =>
-					generateLaunchArtifacts(
-						this.env,
-						event.payload.projectState,
-						research,
-					),
+				() => summarizeMaterial(this.env, material),
 			);
 
-			await step.do("persist-market-artifacts", async () => {
-				await callSession<ProjectState>(
+			const extracted = await step.do(
+				"extract-concepts-and-weak-areas",
+				{
+					retries: { limit: 2, delay: "5 seconds", backoff: "linear" },
+					timeout: "90 seconds",
+				},
+				() => extractConceptsAndWeakAreas(this.env, material),
+			);
+
+			const insights: MaterialInsights = {
+				summary,
+				concepts: extracted.concepts,
+				weakAreas: extracted.weakAreas,
+			};
+
+			await step.do("persist-material-insights", async () => {
+				await callSession<StudySession>(
 					this.env,
 					event.payload.sessionId,
 					"/workflow/complete",
@@ -348,8 +305,8 @@ export class LaunchBriefWorkflow extends WorkflowEntrypoint<
 						method: "POST",
 						body: JSON.stringify({
 							workflowId: event.payload.workflowId,
-							sourceRevision: event.payload.sourceRevision,
-							artifacts,
+							materialId: event.payload.materialId,
+							insights,
 						}),
 					},
 				);
@@ -357,9 +314,9 @@ export class LaunchBriefWorkflow extends WorkflowEntrypoint<
 				return { saved: true };
 			});
 
-			return artifacts;
+			return insights;
 		} catch (error) {
-			await callSession<ProjectState>(
+			await callSession<StudySession>(
 				this.env,
 				event.payload.sessionId,
 				"/workflow/error",
@@ -367,7 +324,7 @@ export class LaunchBriefWorkflow extends WorkflowEntrypoint<
 					method: "POST",
 					body: JSON.stringify({
 						workflowId: event.payload.workflowId,
-						sourceRevision: event.payload.sourceRevision,
+						materialId: event.payload.materialId,
 						error: getErrorMessage(error),
 					}),
 				},
@@ -378,244 +335,221 @@ export class LaunchBriefWorkflow extends WorkflowEntrypoint<
 	}
 }
 
-async function handleStateRequest(url: URL, env: Env): Promise<Response> {
-	const sessionId = normalizeSessionId(url.searchParams.get("sessionId"));
-	if (!sessionId) {
-		return badRequest("A valid sessionId is required.");
-	}
-
-	return jsonResponse(await callSession<ProjectState>(env, sessionId, "/state"));
+async function handleCreateSession(env: Env, request: Request): Promise<Response> {
+	const sessionId = createSessionId();
+	const session = await callSession<StudySession>(env, sessionId, "/session");
+	return jsonResponse(session, request, env, { status: 201 });
 }
 
-async function handleResetRequest(request: Request, env: Env): Promise<Response> {
-	const body = (await request.json()) as { sessionId?: string };
-	const sessionId = normalizeSessionId(body.sessionId);
-	if (!sessionId) {
-		return badRequest("A valid sessionId is required.");
-	}
-
-	const state = await callSession<ProjectState>(env, sessionId, "/reset", {
-		method: "POST",
-	});
-	return jsonResponse(state);
-}
-
-async function handleCompetitorsRequest(
-	request: Request,
+async function handleGetSession(
 	env: Env,
+	request: Request,
+	sessionId: string,
 ): Promise<Response> {
-	const body = (await request.json()) as { sessionId?: string; urls?: string[] };
-	const sessionId = normalizeSessionId(body.sessionId);
-	if (!sessionId) {
-		return badRequest("A valid sessionId is required.");
-	}
-
-	const urls = normalizeCompetitorUrls(body.urls ?? []);
-	const state = await callSession<ProjectState>(env, sessionId, "/competitors", {
-		method: "POST",
-		body: JSON.stringify({ urls }),
-	});
-	return jsonResponse(state);
+	const session = await callSession<StudySession>(env, sessionId, "/session");
+	return jsonResponse(session, request, env);
 }
 
-async function handleRunAnalysisRequest(
-	request: Request,
+async function handleAddMaterial(
 	env: Env,
+	request: Request,
+	sessionId: string,
 ): Promise<Response> {
-	const body = (await request.json()) as { sessionId?: string };
-	const sessionId = normalizeSessionId(body.sessionId);
-	if (!sessionId) {
-		return badRequest("A valid sessionId is required.");
-	}
-
-	const currentState = await callSession<ProjectState>(env, sessionId, "/state");
-	if (!currentState.messages.some((message) => message.role === "user")) {
-		return badRequest("Add at least one product idea message before running analysis.");
-	}
-
-	if (currentState.workflowStatus.status === "running") {
+	const body = (await request.json()) as { title?: string; content?: string };
+	const content = body.content?.trim() ?? "";
+	if (!content) {
 		return jsonResponse(
-			{ error: "An analysis workflow is already running for this session." },
-			{ status: 409 },
+			{ error: "Material content is required." },
+			request,
+			env,
+			{ status: 400 },
 		);
 	}
 
-	const workflowId = `analysis-${sessionId}-${Date.now()}`;
-	const state = await callSession<ProjectState>(env, sessionId, "/workflow/start", {
+	const materialId = createSessionId();
+	const result = await callSession<{ session: StudySession; material: StudyMaterial }>(
+		env,
+		sessionId,
+		"/materials",
+		{
+			method: "POST",
+			body: JSON.stringify({
+				id: materialId,
+				title: body.title,
+				content,
+			}),
+		},
+	);
+
+	const workflowId = `material-${sessionId}-${Date.now()}`;
+	const runningSession = await callSession<StudySession>(env, sessionId, "/workflow/start", {
 		method: "POST",
-		body: JSON.stringify({ workflowId }),
+		body: JSON.stringify({
+			workflowId,
+			materialId: result.material.id,
+		}),
 	});
 
 	try {
-		const instance = await env.LAUNCH_BRIEF_WORKFLOW.create({
+		await env.MATERIAL_INGESTION_WORKFLOW.create({
 			id: workflowId,
 			params: {
 				sessionId,
+				materialId: result.material.id,
 				workflowId,
-				sourceRevision: state.workflowStatus.sourceRevision ?? state.revision,
-				projectState: state,
 			},
 		});
-
-		return jsonResponse({
-			workflowId: instance.id,
-			status: state.workflowStatus.status,
-		});
 	} catch (error) {
-		await callSession<ProjectState>(env, sessionId, "/workflow/error", {
+		await callSession<StudySession>(env, sessionId, "/workflow/error", {
 			method: "POST",
 			body: JSON.stringify({
 				workflowId,
-				sourceRevision: state.workflowStatus.sourceRevision ?? state.revision,
+				materialId: result.material.id,
 				error: getErrorMessage(error),
 			}),
 		});
 
 		return jsonResponse(
-			{ error: "Failed to start the market-analysis workflow." },
+			{ error: "The material ingestion workflow could not be started." },
+			request,
+			env,
 			{ status: 500 },
 		);
 	}
+
+	return jsonResponse(runningSession, request, env, { status: 201 });
 }
 
-async function handleChatRequest(
-	request: Request,
+async function handleChat(
 	env: Env,
+	request: Request,
+	sessionId: string,
 ): Promise<Response> {
-	const body = (await request.json()) as {
-		sessionId?: string;
-		message?: string;
-	};
-
-	const sessionId = normalizeSessionId(body.sessionId);
-	const rawMessage = body.message?.trim() ?? "";
-	const explicitUrls = extractUrlsFromText(rawMessage);
-	const message = stripUrlsFromText(rawMessage);
-
-	if (!sessionId) {
-		return badRequest("A valid sessionId is required.");
-	}
+	const body = (await request.json()) as { message?: string };
+	const message = body.message?.trim() ?? "";
 
 	if (!message) {
-		return badRequest("Describe the idea you want analyzed.");
+		return jsonResponse(
+			{ error: "A non-empty tutor message is required." },
+			request,
+			env,
+			{ status: 400 },
+		);
 	}
 
-	let state = await callSession<ProjectState>(env, sessionId, "/turn/start", {
+	const session = await callSession<StudySession>(env, sessionId, "/messages/user", {
 		method: "POST",
-		body: JSON.stringify({ message }),
+		body: JSON.stringify({ content: message }),
 	});
-
-	if (explicitUrls.length > 0) {
-		state = await callSession<ProjectState>(env, sessionId, "/competitors", {
-			method: "POST",
-			body: JSON.stringify({
-				urls: normalizeCompetitorUrls([...state.competitorUrls, ...explicitUrls]),
-			}),
-		});
-	}
 
 	let modelStream: ReadableStream | null = null;
 
 	try {
 		modelStream = (await env.AI.run(CHAT_MODEL, {
-			messages: buildChatMessages(state),
-			max_tokens: 768,
+			messages: buildChatMessages(session),
+			max_tokens: 700,
 			stream: true,
 		})) as ReadableStream;
 	} catch (error) {
-		console.error("Failed to start Workers AI stream:", error);
+		console.error("Failed to start tutor stream:", error);
 		return jsonResponse(
-			{ error: "Failed to start the chat response." },
+			{ error: "The tutor response could not be started." },
+			request,
+			env,
 			{ status: 500 },
 		);
 	}
 
 	let assistantMessage = "";
-
 	const stream = new ReadableStream({
 		async start(controller) {
 			try {
 				assistantMessage = await relayModelStream(modelStream!, controller);
 			} catch (error) {
-				console.error("Streaming response failed:", error);
-				const fallbackMessage =
-					assistantMessage.length > 0
-						? "\n\nThe response was interrupted, but I kept your progress."
-						: "I hit a temporary issue while generating the response. Please try again.";
-				controller.enqueue(formatSseChunk(fallbackMessage));
-				assistantMessage += fallbackMessage;
+				console.error("Tutor stream interrupted:", error);
+				const fallback =
+					assistantMessage.trim().length > 0
+						? "\n\nI lost the connection mid-answer, but your study session is still saved."
+						: "I hit a temporary issue while responding. Please try again.";
+				assistantMessage += fallback;
+				controller.enqueue(formatSseChunk(fallback));
 			} finally {
 				if (assistantMessage.trim()) {
-					const finalizedState = await finalizeChatTurn(
+					const updatedSession = await callSession<StudySession>(
 						env,
 						sessionId,
-						assistantMessage,
+						"/messages/assistant",
+						{
+							method: "POST",
+							body: JSON.stringify({ content: assistantMessage }),
+						},
 					);
-					controller.enqueue(formatSseEvent({ state: finalizedState }));
+					controller.enqueue(formatSseEvent({ session: updatedSession }));
 				}
+
 				controller.enqueue(encoder.encode("data: [DONE]\n\n"));
 				controller.close();
 			}
 		},
 	});
 
-	return new Response(stream, {
-		headers: {
-			"content-type": "text/event-stream; charset=utf-8",
-			"cache-control": "no-cache",
-			connection: "keep-alive",
-		},
-	});
+	return withCorsHeaders(
+		new Response(stream, {
+			headers: {
+				"content-type": "text/event-stream; charset=utf-8",
+				"cache-control": "no-cache",
+				connection: "keep-alive",
+			},
+		}),
+		request,
+		env,
+	);
 }
 
-async function finalizeChatTurn(
+async function handleFlashcards(
 	env: Env,
+	request: Request,
 	sessionId: string,
-	assistantMessage: string,
-): Promise<ProjectState> {
-	try {
-		const state = await callSession<ProjectState>(env, sessionId, "/turn/complete", {
-			method: "POST",
-			body: JSON.stringify({ assistantMessage }),
-		});
-		const snapshot = deriveSnapshotFromConversation(state);
-		let mergedState = await callSession<ProjectState>(env, sessionId, "/snapshot/merge", {
-			method: "POST",
-			body: JSON.stringify({ snapshot }),
-		});
+): Promise<Response> {
+	const body = (await request.json().catch(() => ({}))) as { count?: number };
+	const session = await callSession<StudySession>(env, sessionId, "/session");
+	const payload = await generateFlashcards(env, session, body.count);
+	const updatedSession = await callSession<StudySession>(env, sessionId, "/flashcards", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
 
-		if (mergedState.competitorUrls.length === 0) {
-			const suggestedUrls = suggestCompetitorUrlsFromIdea(
-				[
-					mergedState.ideaName,
-					mergedState.oneLiner,
-					mergedState.problem,
-					...mergedState.messages
-						.filter((message) => message.role === "user")
-						.map((message) => message.content),
-				]
-					.filter(Boolean)
-					.join(". "),
-			);
+	return jsonResponse(
+		{
+			flashcards: updatedSession.flashcards,
+			session: updatedSession,
+		},
+		request,
+		env,
+	);
+}
 
-			if (suggestedUrls.length > 0) {
-				mergedState = await callSession<ProjectState>(env, sessionId, "/competitors", {
-					method: "POST",
-					body: JSON.stringify({
-						urls: normalizeCompetitorUrls([
-							...mergedState.competitorUrls,
-							...suggestedUrls,
-						]),
-					}),
-				});
-			}
-		}
+async function handleQuiz(
+	env: Env,
+	request: Request,
+	sessionId: string,
+): Promise<Response> {
+	const body = (await request.json().catch(() => ({}))) as { count?: number };
+	const session = await callSession<StudySession>(env, sessionId, "/session");
+	const payload = await generateQuiz(env, session, body.count);
+	const updatedSession = await callSession<StudySession>(env, sessionId, "/quiz", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
 
-		return mergedState;
-	} catch (error) {
-		console.error("Failed to finalize the chat turn:", error);
-		return callSession<ProjectState>(env, sessionId, "/state");
-	}
+	return jsonResponse(
+		{
+			quiz: updatedSession.quizzes,
+			session: updatedSession,
+		},
+		request,
+		env,
+	);
 }
 
 async function relayModelStream(
@@ -630,7 +564,7 @@ async function relayModelStream(
 	while (true) {
 		const { done, value } = await reader.read();
 		if (done) {
-			const parsed = consumeSseEvents(buffer + "\n\n");
+			const parsed = consumeSseEvents(`${buffer}\n\n`);
 			for (const data of parsed.events) {
 				const chunk = extractContentChunk(data);
 				if (!chunk) continue;
@@ -665,32 +599,24 @@ function extractContentChunk(data: string): string {
 			response?: string;
 			choices?: Array<{ delta?: { content?: string } }>;
 		};
-		if (typeof parsed.response === "string") {
-			return parsed.response;
-		}
-		if (typeof parsed.choices?.[0]?.delta?.content === "string") {
-			return parsed.choices[0].delta.content;
-		}
-		return "";
+
+		return parsed.response ?? parsed.choices?.[0]?.delta?.content ?? "";
 	} catch {
 		return "";
 	}
 }
 
-function consumeSseEvents(buffer: string): {
-	events: string[];
-	buffer: string;
-} {
+function consumeSseEvents(buffer: string): { events: string[]; buffer: string } {
 	let normalized = buffer.replace(/\r/g, "");
 	const events: string[] = [];
-	let eventBoundary = normalized.indexOf("\n\n");
+	let boundary = normalized.indexOf("\n\n");
 
-	while (eventBoundary !== -1) {
-		const rawEvent = normalized.slice(0, eventBoundary);
-		normalized = normalized.slice(eventBoundary + 2);
+	while (boundary !== -1) {
+		const rawEvent = normalized.slice(0, boundary);
+		normalized = normalized.slice(boundary + 2);
 
-		const lines = rawEvent.split("\n");
-		const dataLines = lines
+		const dataLines = rawEvent
+			.split("\n")
 			.filter((line) => line.startsWith("data:"))
 			.map((line) => line.slice("data:".length).trimStart());
 
@@ -698,10 +624,47 @@ function consumeSseEvents(buffer: string): {
 			events.push(dataLines.join("\n"));
 		}
 
-		eventBoundary = normalized.indexOf("\n\n");
+		boundary = normalized.indexOf("\n\n");
 	}
 
 	return { events, buffer: normalized };
+}
+
+function formatSseChunk(chunk: string): Uint8Array {
+	return formatSseEvent({ response: chunk });
+}
+
+function formatSseEvent(payload: unknown): Uint8Array {
+	return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+async function callSession<T>(
+	env: Env,
+	sessionId: string,
+	pathname: string,
+	init?: RequestInit,
+): Promise<T> {
+	const id = env.LEARNING_SESSIONS.idFromName(sessionId);
+	const stub = env.LEARNING_SESSIONS.get(id);
+	const request = new Request(`https://session${pathname}`, {
+		...init,
+		headers: {
+			"content-type": "application/json",
+			"x-session-id": sessionId,
+			...(init?.headers ?? {}),
+		},
+	});
+
+	const response = await stub.fetch(request);
+	if (!response.ok) {
+		throw new Error(`Session request failed: ${pathname}`);
+	}
+
+	return response.json<T>();
+}
+
+function createSessionId(): string {
+	return crypto.randomUUID().replace(/-/g, "");
 }
 
 function normalizeSessionId(value: string | null | undefined): string | null {
@@ -710,60 +673,49 @@ function normalizeSessionId(value: string | null | undefined): string | null {
 	}
 
 	const normalized = value.trim();
-	if (!/^[a-zA-Z0-9_-]{8,120}$/.test(normalized)) {
-		return null;
+	return /^[a-zA-Z0-9_-]{8,120}$/.test(normalized) ? normalized : null;
+}
+
+function getCorsOrigin(request: Request, env: Env): string {
+	const configured = env.CORS_ORIGIN?.trim();
+	if (configured) {
+		return configured;
 	}
 
-	return normalized;
+	return request.headers.get("origin")?.trim() || "*";
 }
 
-function formatSseChunk(content: string): Uint8Array {
-	return encoder.encode(`data: ${JSON.stringify({ response: content })}\n\n`);
-}
+function withCorsHeaders(response: Response, request: Request, env: Env): Response {
+	const headers = new Headers(response.headers);
+	headers.set("Access-Control-Allow-Origin", getCorsOrigin(request, env));
+	headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+	headers.set("Access-Control-Allow-Headers", "content-type");
+	headers.set("Vary", "Origin");
 
-function formatSseEvent(payload: unknown): Uint8Array {
-	return encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
-}
-
-function jsonResponse(data: unknown, init?: ResponseInit): Response {
-	return new Response(JSON.stringify(data), {
-		...init,
-		headers: {
-			"content-type": "application/json; charset=utf-8",
-			...init?.headers,
-		},
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
 	});
 }
 
-function badRequest(message: string): Response {
-	return jsonResponse({ error: message }, { status: 400 });
-}
-
-function getSessionStub(env: Env, sessionId: string) {
-	return env.LAUNCH_SESSIONS.getByName(sessionId);
-}
-
-async function callSession<T>(
+function jsonResponse(
+	data: unknown,
+	request: Request,
 	env: Env,
-	sessionId: string,
-	path: string,
-	init?: RequestInit,
-): Promise<T> {
-	const response = await getSessionStub(env, sessionId).fetch(
-		new Request(`https://launch-session${path}`, init),
-	);
+	init?: ResponseInit,
+): Response {
+	const response = new Response(JSON.stringify(data), {
+		...init,
+		headers: {
+			"content-type": "application/json; charset=utf-8",
+			...(init?.headers ?? {}),
+		},
+	});
 
-	if (!response.ok) {
-		const message = await response.text();
-		throw new Error(`Session request failed: ${response.status} ${message}`);
-	}
-
-	return (await response.json()) as T;
+	return withCorsHeaders(response, request, env);
 }
 
 function getErrorMessage(error: unknown): string {
-	if (error instanceof Error && error.message) {
-		return error.message;
-	}
-	return "Unknown error";
+	return error instanceof Error ? error.message : "Unknown error";
 }

@@ -1,187 +1,59 @@
-export interface ChatMessage {
+export interface SessionMessage {
 	role: "user" | "assistant";
 	content: string;
+	timestamp: string;
 }
 
-export interface LaunchBrief {
-	summary: string;
-	audience: string;
-	valueProposition: string;
-	launchStrategy: string;
-	successMetric: string;
-}
-
-export interface CompetitorProfile {
-	url: string;
-	hostname: string;
-	brandName: string;
+export interface StudyMaterial {
+	id: string;
 	title: string;
+	content: string;
 	summary: string;
-	positioning: string;
-	targetAudience: string;
-	pricingHints: string[];
-	keyFeatures: string[];
-	cta: string;
-	status: "complete" | "failed";
-	error?: string;
+	concepts: string[];
+	createdAt: string;
+	updatedAt: string;
 }
 
-export interface MarketInsight {
-	title: string;
-	description: string;
+export interface Flashcard {
+	front: string;
+	back: string;
 }
 
-export interface DifferentiationStrategy {
-	headline: string;
-	whyItWins: string;
-	messagingPillars: string[];
-}
-
-export interface DecisionBoard {
-	buildNow: string[];
-	avoidNow: string[];
-	proofPoints: string[];
-	firstSalesMotion: string;
-}
-
-export interface MessagingKit {
-	homepageHeadline: string;
-	homepageSubheadline: string;
-	elevatorPitch: string;
-	demoOpener: string;
-}
-
-export interface CloudflareServiceRecommendation {
-	service: string;
-	why: string;
-}
-
-export interface CloudflarePlan {
-	summary: string;
-	architecture: string;
-	services: CloudflareServiceRecommendation[];
-	launchSequence: string[];
-	edgeAdvantage: string;
-}
-
-export interface ImplementationKit {
-	productSpec: string;
-	codingPrompt: string;
-	agentPrompt: string;
-	starterTasks: string[];
-}
-
-export interface PitchDeckSlide {
-	title: string;
-	headline: string;
-	bullets: string[];
-}
-
-export interface ForecastPoint {
-	label: string;
-	value: number;
-}
-
-export interface WebsitePrototype {
-	title: string;
-	summary: string;
-	html: string;
+export interface QuizQuestion {
+	question: string;
+	options: string[];
+	answer: string;
+	explanation: string;
 }
 
 export interface WorkflowStatus {
 	status: "idle" | "running" | "complete" | "errored";
 	workflowId: string | null;
-	sourceRevision: number | null;
+	materialId: string | null;
 	error: string | null;
 	updatedAt: string | null;
 }
 
-export interface ResearchStatus {
-	stage:
-		| "idle"
-		| "queued"
-		| "researching"
-		| "synthesizing"
-		| "complete"
-		| "errored";
-	totalCompetitors: number;
-	completedCompetitors: number;
-	failedCompetitors: number;
-	updatedAt: string | null;
+export interface StudySession {
+	id: string;
+	title: string;
+	createdAt: string;
+	updatedAt: string;
+	materials: StudyMaterial[];
+	messages: SessionMessage[];
+	flashcards: Flashcard[];
+	quizzes: QuizQuestion[];
+	summary: string;
+	weakAreas: string[];
+	workflowStatus: WorkflowStatus;
 }
 
-export interface ProjectState {
-	revision: number;
-	messages: ChatMessage[];
-	ideaName: string;
-	oneLiner: string;
-	targetUser: string;
-	problem: string;
-	solution: string;
-	keyFeatures: string[];
-	mvpScope: string[];
-	risks: string[];
-	openQuestions: string[];
-	competitorUrls: string[];
-	competitorResearch: CompetitorProfile[];
-	marketInsights: MarketInsight[];
-	recommendedWedge: string;
-	differentiation: DifferentiationStrategy | null;
-	researchStatus: ResearchStatus;
-	researchErrors: string[];
-	workflowStatus: WorkflowStatus;
-	launchBrief: LaunchBrief | null;
-	checklist: string[];
-	validationPlan: string[];
-	customerQuestions: string[];
-	outreachMessage: string;
-	decisionBoard: DecisionBoard | null;
-	messagingKit: MessagingKit | null;
-	cloudflarePlan: CloudflarePlan | null;
-	implementationKit: ImplementationKit | null;
-	pitchDeck: PitchDeckSlide[];
-	forecast: ForecastPoint[];
-	websitePrototype: WebsitePrototype | null;
+export interface RecentSession {
+	id: string;
+	title: string;
+	updatedAt: string;
 }
 
 export interface ApiErrorResponse {
 	error?: string;
-}
-
-export interface SpeechRecognitionResultLike {
-	readonly transcript: string;
-}
-
-export interface SpeechRecognitionResultListLike {
-	[index: number]: {
-		[index: number]: SpeechRecognitionResultLike;
-	};
-}
-
-export interface SpeechRecognitionEventLike extends Event {
-	results: SpeechRecognitionResultListLike;
-}
-
-export interface SpeechRecognitionLike {
-	lang: string;
-	continuous: boolean;
-	interimResults: boolean;
-	maxAlternatives: number;
-	onstart: (() => void) | null;
-	onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-	onerror: ((event: { error: string }) => void) | null;
-	onend: (() => void) | null;
-	start(): void;
-	stop(): void;
-}
-
-export interface SpeechRecognitionConstructor {
-	new (): SpeechRecognitionLike;
-}
-
-declare global {
-	interface Window {
-		SpeechRecognition?: SpeechRecognitionConstructor;
-		webkitSpeechRecognition?: SpeechRecognitionConstructor;
-	}
 }

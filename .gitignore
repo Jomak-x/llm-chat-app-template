@@ -201,3 +201,6 @@ dist
 ### Editors ###
 .idea/
 .vscode/
+
+### Test artifacts ###
+test-results/

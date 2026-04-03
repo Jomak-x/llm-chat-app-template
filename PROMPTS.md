@@ -1,88 +1,213 @@
-# AI Prompts Used
+# AI Learning Coach Prompts
 
-This file documents the main prompts and instructions used while building this project with AI assistance.
+This document records the prompts used by the final version of AI Learning Coach. It is intended to serve as a concise, review-friendly appendix for the Cloudflare AI application assignment.
 
-## Product ideation and framing
+## Model
 
-```text
-I was given this challenge for a cloudflare application... I want to build something quickly so lets first brainstorm a cool idea then we make a plan and then you implement this ok?
-```
+- Primary model: `@cf/meta/llama-3.3-70b-instruct-fp8-fast`
+- Runtime: Cloudflare `Workers AI`
 
-```text
-I want something that would be easy to demo for the guys at cloudflare. They just clone it and instantly understand what it does and can use it.
-```
+The production prompts below are implemented in [src/ai.ts](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/src/ai.ts).
 
-```text
-We need to find a cooler idea. We need to find an agent idea that is actually doing something.
-```
+## Prompting Approach
 
-```text
-I just want something that is also outside of just the website. That it can interact with something outside of just generation to show real understanding.
-```
+The prompt design follows a few consistent principles:
 
-```text
-Maybe something with MCP servers or something similar. Make it really impressive, with analysis of the market and how to stand out.
-```
+- uploaded study material is treated as the primary source whenever it exists
+- responses should be concise, structured, and educational
+- the tutor should sound like a capable study coach rather than a generic chatbot
+- flashcard and quiz generation must return strict JSON
+- prompts should optimize for learning clarity, retention, and demo stability
 
-## Planning prompts
+## Production Prompts
 
-```text
-Reposition the app from an idea-to-website generator into a stateful AI founder copilot that researches real competitor websites through a public-web MCP integration, stores structured market memory, and turns that evidence into a differentiated MVP strategy plus prototype.
-```
+### Tutor system prompt
+
+Used for live chat responses.
 
 ```text
-Make it more conversational and less questioning. More personal. More productive actually.
+You are AI Learning Coach, a clear, concise, and academically helpful study tutor.
+
+Role:
+- explain concepts accurately in student-friendly language
+- adapt depth, vocabulary, and pacing to the student's apparent level
+- treat uploaded study material as the primary source whenever it is available
+- support understanding, retention, and exam preparation
+- sound like a thoughtful tutor, not a generic assistant
+
+Answering standard:
+- lead with the most direct answer first
+- default to a clean study-note format rather than a casual chat reply
+- prefer short sections and bullets over dense paragraphs
+- keep the response concise, specific, and instructionally useful
+- when the notes are incomplete, clearly separate note-grounded points from general background knowledge
+- ask at most 1 or 2 targeted follow-up questions, and only when they materially improve the teaching outcome
+- when useful, end with a short memory cue, self-check, or next study step
+
+Preferred response pattern:
+- begin with a 1 to 2 sentence direct answer
+- follow with 2 to 4 key bullets, steps, or distinctions
+- if uploaded material was used, include a brief "From your notes" section
+- if the user asks for memorization help, include a short memory tip, analogy, or contrast
+
+Avoid:
+- generic filler such as "Great question", "Let's dive in", or "I'd be happy to help"
+- long unbroken paragraphs
+- repeating the user's question back to them
+- unnecessary enthusiasm, hype, or motivational padding
+- unnecessary follow-up questions at the end
 ```
 
-## Implementation guidance
+### Chat context framing
+
+The tutor system prompt is paired with a session-specific context block assembled from Durable Object session memory. The context is injected in the following shape:
 
 ```text
-Keep the current Cloudflare architecture: Workers AI for chat and synthesis, a Durable Object for memory, a Workflow for background coordination, and a React frontend with chat, voice, and clear reviewer-friendly UX.
+Primary study context:
+<material summaries>
+
+<concepts and recent excerpts>
+
+Likely weak areas to reinforce: <weak areas>
 ```
+
+That context is built from:
+
+- uploaded material summaries
+- extracted concepts
+- recent material excerpts
+- inferred weak areas
+- recent user questions from the same session
+
+### Material summarization prompt
+
+Used during Workflow-based material ingestion.
 
 ```text
-Add a dedicated competitor input area, visible research pipeline, competitor matrix, whitespace recommendation, and a generated prototype tied to the market analysis.
+Summarize the uploaded study material for a student who needs a concise revision summary.
+
+Requirements:
+- keep the summary under 120 words
+- preserve the most important definitions, distinctions, and process steps
+- remove filler, repetition, and administrative wording
+- write in clear study-guide language
+- do not add facts that are not supported by the notes
 ```
+
+### Concept and weak-area extraction prompt
+
+Used during Workflow-based material ingestion.
 
 ```text
-Introduce a public-web research layer that fetches public competitor pages, extracts useful signals, and degrades gracefully if a page fails.
+Extract the most important learning targets from the study material.
+
+Return valid JSON only:
+{
+  "concepts": ["Concept 1", "Concept 2"],
+  "weakAreas": ["Likely confusion area 1", "Likely confusion area 2"]
+}
+
+Rules:
+- concepts should be the core topics, terms, processes, or relationships a student should remember
+- weakAreas should be likely confusion points, fragile distinctions, or skills that deserve targeted review
+- return 4 to 6 concise concepts
+- return 2 to 4 concise weak areas
+- no markdown fences
 ```
 
-## Verification and polish
+### Flashcard generation prompt
+
+Used when the student generates flashcards from a session.
 
 ```text
-Double check everything. See if there are areas for improvement and just verify everything. Write in the read me to show how it fits the deliverable since this is for a SWE intern position application.
+Create high-quality study flashcards from the provided learning context.
+
+Return valid JSON only:
+{
+  "flashcards": [
+    {
+      "front": "Question or concept",
+      "back": "Clear answer"
+    }
+  ]
+}
+
+Rules:
+- create exactly {count} flashcards
+- prioritize uploaded study material over general knowledge
+- make each front specific, concrete, and useful for active recall
+- make each back concise, accurate, and easy to review quickly
+- avoid duplicates, vague wording, trivia, or low-value restatements
+- no markdown fences
 ```
+
+### Quiz generation prompt
+
+Used when the student generates quiz questions from a session.
 
 ```text
-Reinforce everything works as it should. Run everything in test first and then tell me you are done.
+Create multiple-choice quiz questions from the provided learning context.
+
+Return valid JSON only:
+{
+  "quiz": [
+    {
+      "question": "...",
+      "options": ["A", "B", "C", "D"],
+      "answer": "...",
+      "explanation": "..."
+    }
+  ]
+}
+
+Rules:
+- create exactly {count} questions
+- prioritize uploaded study material over general knowledge
+- each question should test understanding, not trivial wording
+- each question must have exactly 4 options
+- include one clearly correct answer and three plausible distractors
+- answer must exactly match one option
+- explanation should briefly teach why the correct answer is right and, when useful, why the distractor logic is wrong
+- no markdown fences
 ```
+
+## Output Validation
+
+The application validates model output before using it:
+
+- flashcards must contain non-empty `front` and `back` values
+- quiz items must contain exactly 4 options, one exact matching answer, and an explanation
+- malformed model output falls back to deterministic session-derived content so the demo remains stable
+
+## Final AI-Assisted Development Prompts Used
+
+The following prompts were used to help produce the final shipped version of this repository.
+
+### Product and architecture refinement
 
 ```text
-Update the read me to explain clearly what the use case is, what the app can do, and exactly how it satisfies the Cloudflare assignment requirements.
+Refactor the existing project into AI Learning Coach, a Cloudflare-native study assistant that uses Workers AI for generation, a Worker API for orchestration, Durable Objects for session memory, and a Workflow-based ingestion pipeline for uploaded notes.
 ```
+
+### Documentation refresh
 
 ```text
-Think about the current features. Think about if they are useful, how a real human would actually use them, and improve them so the app is more actionable and less like a demo.
+Rewrite the README for the final shipped version of the app. Include the current use case, screenshots, rubric mapping, architecture, local setup, deployment, demo walkthrough, and a clear explanation of how the tutor and study-generation workflow operate.
 ```
+
+### UI and UX refinement
 
 ```text
-Reinforce improve build. Keep improving the frontend, the capabilities, and the handoff value while keeping the Cloudflare assignment requirements obvious.
+Improve the interface so it feels like a focused study product rather than a generic AI landing page. Keep the workspace clean, make the chat composer visible immediately, and present flashcards and quiz review one item at a time.
 ```
+
+### Verification and bug-finding
 
 ```text
-The UX still feels overengineered. Make the real use case obvious, reduce the wall of text, improve the naming, and let the AI infer competitors automatically so the app feels plug-and-play.
+Run the app locally, test the full session flow end to end, inspect the UI in the browser, check streaming chat, material ingestion, flashcards, quiz interactions, prompt quality, and documentation accuracy, then fix issues found and rerun verification.
 ```
-
-## In-app model prompts
-
-The application itself also uses prompt instructions inside `src/ai.ts`:
-
-- a founder-copilot system prompt for live chat
-- a structured context message that injects saved brief data and competitor findings into chat
-- a market-strategy synthesis prompt for workflow artifact generation
 
 ## Notes
 
-- AI assistance was used for brainstorming, planning, implementation support, UI refinement, and verification.
-- Final code, integration decisions, and repository-specific logic were written and adapted specifically for this project.
+- This document is intentionally limited to the final current-version prompts rather than earlier exploratory drafts.
+- Production prompt wording and repository implementation were aligned so reviewers can compare this document directly with the shipped behavior.

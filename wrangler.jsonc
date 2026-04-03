@@ -1,44 +1,42 @@
 /**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
+ * Wrangler config for the AI Learning Coach Worker API.
+ * The React frontend is built separately and deployed to Cloudflare Pages.
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "launchlens-ai-app-auditor",
+	"name": "ai-learning-coach-api",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-10-08",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-	"assets": {
-		"binding": "ASSETS",
-		"directory": "./dist"
-	},
 	"observability": {
 		"enabled": true
 	},
 	"ai": {
 		"binding": "AI"
-	}
-	,
+	},
 	"durable_objects": {
 		"bindings": [
 			{
-				"name": "LAUNCH_SESSIONS",
-				"class_name": "LaunchSessionDurableObject"
+				"name": "LEARNING_SESSIONS",
+				"class_name": "LearningCoachSessionDurableObject"
 			}
 		]
 	},
 	"migrations": [
 		{
-			"tag": "v1",
-			"new_sqlite_classes": ["LaunchSessionDurableObject"]
+			"tag": "v2",
+			"new_sqlite_classes": ["LearningCoachSessionDurableObject"]
 		}
 	],
 	"workflows": [
 		{
-			"name": "launchlens-ai-app-audit",
-			"binding": "LAUNCH_BRIEF_WORKFLOW",
-			"class_name": "LaunchBriefWorkflow"
+			"name": "learning-material-ingestion",
+			"binding": "MATERIAL_INGESTION_WORKFLOW",
+			"class_name": "MaterialIngestionWorkflow"
 		}
 	],
+	"vars": {
+		"CORS_ORIGIN": "*"
+	},
 	"upload_source_maps": true
 }

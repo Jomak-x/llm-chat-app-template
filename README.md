@@ -1,128 +1,212 @@
-# LaunchLens AI App Auditor
+# AI Learning Coach
 
-LaunchLens is a Cloudflare-native AI app auditor for the moment before a team starts building.
+AI Learning Coach is a Cloudflare-native study assistant built for the Cloudflare AI application assignment. It helps a student study from their own notes first: upload class material, ask questions in chat, generate flashcards, and create quiz practice from the same persistent session.
 
-You paste an AI app idea or product URL, and LaunchLens turns it into:
+The GitHub repository name remains `cf_ai_cloudflare_app`, as required by the assignment. The product identity inside the app, code, prompts, and documentation has been fully refactored to match the AI Learning Coach concept.
 
-- a sharper market wedge
-- likely competitors and market signals
-- a Cloudflare architecture recommendation
-- a markdown build handoff for another engineer or coding agent
-- an interactive HTML launch page for fast review
+Repository URL: [https://github.com/Jomak-x/cf_ai_cloudflare_app](https://github.com/Jomak-x/cf_ai_cloudflare_app)
 
-This makes the project useful for a Cloudflare reviewer because it does more than chat. It helps answer: "Should this exist, what should it look like, and how should it be built on Cloudflare?"
+## Screenshots
 
-## Demo Screens
+### Chat-first opening view
 
-![LaunchLens landing page](docs/screenshots/landing-overview.svg)
+![AI Learning Coach chat-first opening view](docs/screenshots/chat-first-open.png)
 
-![LaunchLens workspace](docs/screenshots/workspace-overview.svg)
+### Light mode
 
-## Why This Project Makes Sense
+![AI Learning Coach light mode](docs/screenshots/light-mode.png)
 
-This is not a generic "prompt in, website out" demo.
+### Dark mode
 
-LaunchLens acts like a practical Cloudflare solutions copilot:
+![AI Learning Coach dark mode](docs/screenshots/dark-mode.png)
 
-- it chats with the user and keeps the evolving brief in memory
-- it auto-suggests relevant public competitors from the idea
-- it researches those sources and extracts useful signals
-- it synthesizes the market into a wedge and launch recommendation
-- it recommends which Cloudflare products fit the app and why
-- it exports a builder-ready handoff so the next engineer can move fast
+### Full workspace
 
-That makes it useful for:
+![AI Learning Coach full workspace](docs/screenshots/full-workspace.png)
 
-- a Cloudflare engineer reviewing whether the architecture choice is thoughtful
-- a builder deciding whether an AI product is worth building
-- a reviewer who wants a quick, demoable, end-to-end Cloudflare AI app
+## Use Case
 
-## What The User Gets
+This app is designed for a simple but strong demo scenario:
 
-- `Summary`
-  - idea name, one-liner, target user, problem, wedge
-- `Competition`
-  - likely competitors, positioning signals, pricing cues, market insights
-- `Build on Cloudflare`
-  - recommended services, architecture, launch sequence, implementation prompts
-- `Launch Page`
-  - an interactive HTML artifact for quick visual review
-- `Exports`
-  - markdown build kit
-  - market brief
-  - downloadable HTML launch page
+- a student pastes lecture notes or uploads a supported text-based file such as `.txt`, `.md`, `.csv`, `.tsv`, or `.json`
+- the student can start typing in the tutor box immediately on first open
+- the app summarizes the notes and extracts key concepts
+- the student asks the tutor for explanations in chat
+- the app grounds responses in the uploaded material first
+- the student turns the same session into flashcards and a quiz
+- review happens one card or one question at a time instead of in one long list
 
-## How It Works
+It is intentionally narrower and more demo-friendly than NotebookLM: fewer features, faster to understand, and tightly scoped around studying from uploaded material.
 
-1. Open the workspace.
-2. Paste an AI app idea or product URL.
-3. Chat or use voice input to sharpen the brief.
-4. Let LaunchLens auto-suggest likely competitors.
-5. Run `Audit & Plan`.
-6. Review the market read, Cloudflare plan, and build handoff.
-7. Export the markdown build kit or the launch page.
+## What The App Does
 
-## Why The HTML Artifact Exists
+- chat-based tutoring with concise, educational answers
+- chat composer visible immediately on open for instant trial use
+- note ingestion from pasted text or supported text-based file upload
+- Workflow-powered summarization and concept extraction
+- flashcard generation with structured JSON output and one-at-a-time review
+- quiz generation with structured JSON output and one-question-at-a-time self-testing
+- Durable Object session memory for notes, messages, flashcards, quizzes, summaries, and weak areas
+- recent session switching in the frontend for fast demos
+- light mode and dark mode UI
 
-The HTML output is intentionally not presented as the final product.
+## Rubric Fit
 
-It exists because reviewers and teammates often need something more concrete than text, but much lighter than a full implementation. The generated launch page gives them:
+This project explicitly satisfies every required part of the assignment:
 
-- a fast visual artifact to open immediately
-- the core pitch and first user-flow framing
-- a way to pressure-test whether the idea is understandable
-
-The markdown build kit is the real implementation handoff. The HTML launch page is the fast review surface.
-
-## Assignment / Rubric Coverage
-
-This project directly satisfies the Cloudflare assignment prompt:
-
-| Prompt requirement | How LaunchLens satisfies it | Where it is implemented |
+| Assignment requirement | How AI Learning Coach satisfies it | Key implementation |
 | --- | --- | --- |
-| `LLM` | Uses `Llama 3.3` on `Workers AI` for conversational idea shaping, market synthesis, Cloudflare recommendations, and artifact generation. | [src/ai.ts](src/ai.ts) |
-| `Workflow / coordination` | Uses a Cloudflare `Worker` for orchestration, a `Durable Object` for per-session coordination and persistence, and a `Workflow` for background audit + artifact generation. | [src/index.ts](src/index.ts), [wrangler.jsonc](wrangler.jsonc) |
-| `User input via chat or voice` | The frontend supports typed chat, starter scenarios, and browser voice input. | [app/src/App.tsx](app/src/App.tsx) |
-| `Memory or state` | Session memory stores the chat history, structured brief, competitor evidence, workflow status, and generated outputs. | [src/state.ts](src/state.ts), [src/types.ts](src/types.ts) |
-| `README.md with clear instructions` | This README includes product overview, setup, local run steps, demo flow, and verification. | [README.md](README.md) |
-| `PROMPTS.md` | AI-assisted prompts used during development are documented. | [PROMPTS.md](PROMPTS.md) |
+| `LLM` | Uses `Workers AI` with `Llama 3.3` for tutor chat, note summarization, concept extraction, flashcards, and quiz generation. | [src/ai.ts](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/src/ai.ts) |
+| `Workflow / coordination` | Uses a Cloudflare `Worker` as the orchestration layer and a Cloudflare `Workflow` to ingest, summarize, and extract concepts from uploaded material. | [src/index.ts](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/src/index.ts), [wrangler.jsonc](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/wrangler.jsonc) |
+| `User input via chat or voice` | Uses a chat-first frontend built for `Cloudflare Pages`, including chat, material input, flashcards, and quiz panels. | [app/src/App.tsx](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/app/src/App.tsx) |
+| `Memory or state` | Uses a `Durable Object` per study session to persist materials, conversation history, generated outputs, summary, and weak areas. | [src/state.ts](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/src/state.ts) |
+| `README.md with clear running instructions` | This file documents setup, architecture, demo flow, deployment, and rubric mapping. | [README.md](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/README.md) |
+| `PROMPTS.md with AI prompts used` | Production prompts and the final AI-assisted development prompts are documented. | [PROMPTS.md](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/PROMPTS.md) |
+| `Repository name prefixed with cf_ai_` | The GitHub repository is `cf_ai_cloudflare_app`. | [GitHub repository](https://github.com/Jomak-x/cf_ai_cloudflare_app) |
 
-## Submission Checklist
+## Architecture
 
-Cloudflare's prompt also requires a few repository-level details. For this repo:
-
-- GitHub repository name should start with `cf_ai_`
-- `README.md` is included
-- `PROMPTS.md` is included
-- the implementation is original to this repository
-
-If you are submitting this, make sure the pushed GitHub repo name is something like:
-
-- `cf_ai_launchlens`
-- `cf_ai_cloudflare_app_auditor`
-
-## Repository Structure
-
-```text
-app/                      React frontend
-docs/screenshots/         README demo visuals
-src/                      Worker, AI logic, state, research
-test/                     UI, state, AI, and research tests
-wrangler.jsonc            Cloudflare bindings and runtime config
-PROMPTS.md                AI-assisted development prompts
-README.md                 Project docs and run instructions
+```mermaid
+flowchart LR
+    A["Cloudflare Pages frontend<br/>React + Vite"] --> B["Worker API"]
+    B --> C["Workers AI<br/>Llama 3.3"]
+    B --> D["Durable Object<br/>Session memory"]
+    B --> E["Workflow<br/>Material ingestion"]
+    E --> C
+    E --> D
 ```
+
+## How The Agent Works
+
+The app behaves like a study coach, not a generic chatbot.
+
+### 1. Material-first study context
+
+When a student uploads notes, the app stores them in the session and treats them as the primary source for later tutoring and generation. The tutor can still use general knowledge, but only to fill in gaps when the uploaded notes are incomplete.
+
+### 2. Workflow-based ingestion
+
+When material is added:
+
+1. the Worker saves the raw material into the session Durable Object
+2. a Workflow summarizes the material
+3. the Workflow extracts concepts and likely weak areas
+4. the Workflow writes those results back into the same session
+
+### 3. Tutor chat
+
+When the student sends a chat message:
+
+1. the Worker appends the user message to the session history
+2. it builds a study-context block from:
+   - uploaded material summaries
+   - extracted concepts
+   - weak areas
+   - recent messages
+3. it calls Workers AI with the tutor system prompt
+4. the response is streamed back to the UI over SSE
+5. the completed assistant message is persisted in Durable Object memory
+
+### 4. Flashcards and quiz generation
+
+When the student generates flashcards or a quiz:
+
+1. the Worker builds a generation context from the same session memory
+2. Workers AI returns structured JSON
+3. the app validates the response shape
+4. the validated output is persisted to the session
+5. the frontend presents study mode one item at a time, with reveal/check interactions instead of dumping everything in a long list
 
 ## Cloudflare Services Used
 
-- `Workers AI`
-  - Llama 3.3 chat + synthesis
-- `Durable Objects`
-  - per-session memory and coordination
-- `Workflows`
-  - background audit and artifact generation
-- `Workers static assets`
-  - serves the built React frontend
+### Workers AI
+
+- tutor chat responses
+- note summarization
+- concept extraction
+- flashcard generation
+- quiz generation
+
+### Workers
+
+- API routing
+- orchestration
+- SSE streaming for chat
+- coordination between frontend, AI, Workflow, and Durable Objects
+
+### Workflows
+
+- multi-step note ingestion pipeline
+- summary generation
+- concept extraction
+- weak-area extraction
+
+### Pages
+
+- frontend hosting target for the React application
+- chat-based user interface
+- chat-first landing state with the composer visible above the message history
+
+### Durable Objects
+
+- per-session study memory
+- materials
+- conversation history
+- flashcards
+- quiz results
+- summary and weak areas
+
+## Data Model
+
+### Session
+
+- `id`
+- `title`
+- `createdAt`
+- `updatedAt`
+- `materials[]`
+- `messages[]`
+- `flashcards[]`
+- `quizzes[]`
+- `summary`
+- `weakAreas[]`
+- `workflowStatus`
+
+### Material
+
+- `id`
+- `title`
+- `content`
+- `summary`
+- `concepts[]`
+- `createdAt`
+- `updatedAt`
+
+## API
+
+- `POST /api/session`
+  Create a new study session.
+- `GET /api/session/:id`
+  Fetch the full session, including workflow status.
+- `POST /api/session/:id/material`
+  Add study material and start the ingestion workflow.
+- `POST /api/session/:id/chat`
+  Stream a tutor response over SSE and persist it to memory.
+- `POST /api/session/:id/flashcards`
+  Generate and persist structured flashcards.
+- `POST /api/session/:id/quiz`
+  Generate and persist structured quiz questions.
+
+## Project Structure
+
+- [`app/`](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/app)
+  React frontend intended for Cloudflare Pages
+- [`src/`](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/src)
+  Worker API, Durable Object, Workflow, and AI orchestration
+- [`docs/screenshots/`](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/docs/screenshots)
+  Current UI screenshots used in this README
+- [`PROMPTS.md`](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/PROMPTS.md)
+  Production prompts and final AI-assisted coding prompts
 
 ## Local Setup
 
@@ -130,112 +214,127 @@ README.md                 Project docs and run instructions
 
 - Node.js `18+`
 - npm
-- a Cloudflare account with access to Workers AI
-- Wrangler installed through the project dependencies
+- a Cloudflare account with Workers AI access
+- Wrangler authentication
 
-### 1. Install dependencies
+### Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Authenticate with Cloudflare
+### Optional environment setup
+
+Example env files are included:
+
+- [.env.example](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/.env.example)
+- [.dev.vars.example](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/.dev.vars.example)
+
+### Authenticate with Cloudflare
 
 ```bash
 npx wrangler login
 ```
 
-### 3. Generate Worker types
+### Generate Worker types
 
 ```bash
 npm run cf-typegen
 ```
 
-### 4. Start the app locally
+## How To Run Locally
+
+Start the frontend and Worker together:
 
 ```bash
 npm run dev
 ```
 
-The app runs through Wrangler locally at:
+This starts:
 
-```text
-http://localhost:8787
-```
+- a Vite frontend on `http://localhost:5173`
+- a local Worker API on `http://localhost:8787`
 
-### 5. Optional: dry-run the production build
+If `5173` is already in use, Vite automatically picks the next open port and prints it in the terminal.
 
-```bash
-npm run check
-```
+## Verification Commands
 
-## Local Demo Script
-
-If someone from Cloudflare clones the repo and wants the shortest path to value:
-
-1. Run `npm install`
-2. Run `npx wrangler login`
-3. Run `npm run cf-typegen`
-4. Run `npm run dev`
-5. Open `http://localhost:8787`
-6. Click `Open Workspace`
-7. Choose a starter scenario or paste an idea
-8. Click `Run Audit & Plan`
-9. Inspect:
-   - the market wedge
-   - the competitor scan
-   - the Cloudflare build plan
-   - the implementation kit
-   - the interactive launch page
-
-## Verification
-
-These commands were run successfully:
+Run these before submitting:
 
 ```bash
 npm test -- --run
 npm run check
 ```
 
-What they cover:
+## How To Use The App
 
-- frontend interaction tests
-- state transition tests
-- AI fallback tests
-- research-layer tests
-- Vite production build
-- Worker TypeScript validation
-- Wrangler dry-run packaging
+### Quick start
 
-Note: in this sandbox, Wrangler prints a known warning when it tries to write logs under `~/.wrangler`, but the dry-run build still completes successfully.
+1. Open the app in the browser.
+2. Click `New Session`.
+3. Paste lecture notes or upload a supported text-based file such as `.txt`, `.md`, `.csv`, `.tsv`, or `.json`.
+4. Wait for the workflow status to show ingestion progress.
+5. Ask the tutor a question right away from the visible chat box.
+6. Generate flashcards and review them one card at a time.
+7. Generate a quiz and answer one question at a time before revealing the explanation.
+8. Switch sessions or refresh to show that memory persists.
 
-## Production-Readiness Notes
+### Example study flow
 
-This repo includes a few small hygiene touches for push readiness:
+Paste:
 
-- `.gitignore` covers Node, Wrangler, editor files, and local env files
-- `.editorconfig` sets consistent formatting defaults
-- the UI copy is aligned around one product story
-- the package metadata and Wrangler app name match the current product
-- tests cover the main user flows and artifact generation path
+```text
+Mitosis is the process by which a eukaryotic cell divides to produce two genetically identical daughter cells. The major phases are prophase, metaphase, anaphase, and telophase.
+```
 
-## Best Files To Review
+Then ask:
 
-If you only want the highest-signal files:
+```text
+Explain mitosis in simpler language and give me a memory trick for the phase order.
+```
 
-- [app/src/App.tsx](app/src/App.tsx)
-  - the main product UX and workspace flow
-- [src/index.ts](src/index.ts)
-  - Worker routes, Durable Object, and Workflow orchestration
-- [src/ai.ts](src/ai.ts)
-  - LLM prompts, synthesis, Cloudflare planning, HTML launch-page generation
-- [src/state.ts](src/state.ts)
-  - persistent memory model and local snapshot derivation
-- [src/research.ts](src/research.ts)
-  - public-web research adapter and competitor suggestions
-- [test/app.test.tsx](test/app.test.tsx)
-  - end-to-end UI coverage for the main product flow
+Then generate:
 
-## Originality Note
+- flashcards for quick review, one card at a time
+- a 5-question quiz for self-testing, one question at a time
 
-This project was built specifically for this submission. AI-assisted coding was used during development, and the prompts used are documented in [PROMPTS.md](PROMPTS.md), but the product framing, implementation, workflow, and repository content are original to this repo.
+## Deployment
+
+### Deploy the Worker API
+
+```bash
+npm run deploy
+```
+
+### Deploy the frontend to Cloudflare Pages
+
+1. Build the client:
+
+```bash
+npm run build:client
+```
+
+2. Deploy the generated `dist/` directory to Cloudflare Pages.
+3. Set `VITE_API_BASE_URL` in Pages to your deployed Worker URL.
+
+Example:
+
+```text
+VITE_API_BASE_URL=https://ai-learning-coach-api.<your-subdomain>.workers.dev
+```
+
+For production, set `CORS_ORIGIN` on the Worker to your Pages domain instead of `*`.
+
+## Why This Fits The Assignment Well
+
+This project is intentionally built to be easy to review:
+
+- the Cloudflare services are visible in the code and in the UI story
+- the chat interface makes the AI interaction obvious immediately
+- the Workflow step shows coordination beyond a single LLM call
+- Durable Objects make memory/state concrete and easy to demonstrate
+- the app is simple enough to demo in under two minutes
+
+## Originality And AI Assistance
+
+This submission was built specifically for this repository and assignment. AI assistance was used for planning, refactoring, UI iteration, verification, and documentation. The prompts used for the final version are documented in [PROMPTS.md](/Users/jakob/codestuff/Cloudflare-app/llm-chat-app-template/PROMPTS.md).

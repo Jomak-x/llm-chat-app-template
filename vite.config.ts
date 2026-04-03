@@ -5,6 +5,14 @@ import path from "node:path";
 export default defineConfig({
 	root: "app",
 	plugins: [react()],
+	server: {
+		proxy: {
+			"/api": {
+				target: "http://127.0.0.1:8787",
+				changeOrigin: true,
+			},
+		},
+	},
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "app/src"),

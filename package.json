@@ -1,8 +1,8 @@
 {
-	"name": "launchlens-ai-app-auditor",
-	"description": "A Cloudflare-native AI app auditor that turns an idea into a market read, Cloudflare architecture plan, and builder handoff",
+	"name": "ai-learning-coach",
+	"description": "A Cloudflare-native study assistant for tutoring, flashcards, quizzes, and note-based learning",
 	"cloudflare": {
-		"label": "LaunchLens AI App Auditor",
+		"label": "AI Learning Coach",
 		"products": [
 			"Workers",
 			"Workers AI",
@@ -12,7 +12,7 @@
 		"categories": [
 			"ai"
 		],
-		"docs_url": "https://developers.cloudflare.com/agents/",
+		"docs_url": "https://developers.cloudflare.com/workers-ai/",
 		"preview_icon_url": "https://imagedelivery.net/wSMYJvS3Xw-n339CbDyDIA/a974bd55-20c6-4656-fa29-1551d43ddc00/public",
 		"preview_image_url": "https://imagedelivery.net/wSMYJvS3Xw-n339CbDyDIA/65dd8441-89d3-491d-c5a1-0a000d070700/preview",
 		"publish": true
@@ -38,12 +38,10 @@
 		"wrangler": "4.56.0"
 	},
 	"dependencies": {
-		"clsx": "^2.1.1",
 		"lucide-react": "^0.511.0",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
 		"react-markdown": "^10.1.0",
-		"react-router-dom": "^7.6.1",
 		"remark-gfm": "^4.0.1"
 	},
 	"private": true,
@@ -53,7 +51,9 @@
 		"cf-typegen": "wrangler types",
 		"check": "npm run build:client && tsc -p tsconfig.worker.json --noEmit && tsc -p tsconfig.app.json --noEmit && wrangler deploy --dry-run",
 		"deploy": "wrangler deploy",
-		"dev": "npm run build:client && concurrently -k -n CLIENT,WORKER -c magenta,cyan \"vite build --watch\" \"wrangler dev\"",
+		"dev": "concurrently -k -n FRONTEND,WORKER -c magenta,cyan \"vite\" \"wrangler dev\"",
+		"dev:client": "vite",
+		"dev:worker": "wrangler dev",
 		"start": "npm run dev",
 		"test": "vitest"
 	}

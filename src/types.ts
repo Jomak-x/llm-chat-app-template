@@ -1,200 +1,76 @@
 export interface Env {
 	AI: Ai;
-	ASSETS: Fetcher;
-	LAUNCH_SESSIONS: DurableObjectNamespace;
-	LAUNCH_BRIEF_WORKFLOW: Workflow<LaunchWorkflowParams>;
+	LEARNING_SESSIONS: DurableObjectNamespace;
+	MATERIAL_INGESTION_WORKFLOW: Workflow<MaterialIngestionWorkflowParams>;
+	CORS_ORIGIN?: string;
 }
 
-export interface ChatMessage {
+export interface SessionMessage {
 	role: "user" | "assistant";
 	content: string;
+	timestamp: string;
 }
 
-export interface LaunchBrief {
-	summary: string;
-	audience: string;
-	valueProposition: string;
-	launchStrategy: string;
-	successMetric: string;
-}
-
-export interface CompetitorProfile {
-	url: string;
-	hostname: string;
-	brandName: string;
+export interface StudyMaterial {
+	id: string;
 	title: string;
+	content: string;
 	summary: string;
-	positioning: string;
-	targetAudience: string;
-	pricingHints: string[];
-	keyFeatures: string[];
-	cta: string;
-	status: "complete" | "failed";
-	error?: string;
+	concepts: string[];
+	createdAt: string;
+	updatedAt: string;
 }
 
-export interface MarketInsight {
-	title: string;
-	description: string;
+export interface Flashcard {
+	front: string;
+	back: string;
 }
 
-export interface DifferentiationStrategy {
-	headline: string;
-	whyItWins: string;
-	messagingPillars: string[];
-}
-
-export interface DecisionBoard {
-	buildNow: string[];
-	avoidNow: string[];
-	proofPoints: string[];
-	firstSalesMotion: string;
-}
-
-export interface MessagingKit {
-	homepageHeadline: string;
-	homepageSubheadline: string;
-	elevatorPitch: string;
-	demoOpener: string;
-}
-
-export interface CloudflareServiceRecommendation {
-	service: string;
-	why: string;
-}
-
-export interface CloudflarePlan {
-	summary: string;
-	architecture: string;
-	services: CloudflareServiceRecommendation[];
-	launchSequence: string[];
-	edgeAdvantage: string;
-}
-
-export interface ImplementationKit {
-	productSpec: string;
-	codingPrompt: string;
-	agentPrompt: string;
-	starterTasks: string[];
-}
-
-export interface PitchDeckSlide {
-	title: string;
-	headline: string;
-	bullets: string[];
-}
-
-export interface ForecastPoint {
-	label: string;
-	value: number;
-}
-
-export interface WebsitePrototype {
-	title: string;
-	summary: string;
-	html: string;
+export interface QuizQuestion {
+	question: string;
+	options: string[];
+	answer: string;
+	explanation: string;
 }
 
 export interface WorkflowStatus {
 	status: "idle" | "running" | "complete" | "errored";
 	workflowId: string | null;
-	sourceRevision: number | null;
+	materialId: string | null;
 	error: string | null;
 	updatedAt: string | null;
 }
 
-export interface ResearchStatus {
-	stage:
-		| "idle"
-		| "queued"
-		| "researching"
-		| "synthesizing"
-		| "complete"
-		| "errored";
-	totalCompetitors: number;
-	completedCompetitors: number;
-	failedCompetitors: number;
-	updatedAt: string | null;
-}
-
-export interface ProjectState {
-	revision: number;
-	messages: ChatMessage[];
-	ideaName: string;
-	oneLiner: string;
-	targetUser: string;
-	problem: string;
-	solution: string;
-	keyFeatures: string[];
-	mvpScope: string[];
-	risks: string[];
-	openQuestions: string[];
-	competitorUrls: string[];
-	competitorResearch: CompetitorProfile[];
-	marketInsights: MarketInsight[];
-	recommendedWedge: string;
-	differentiation: DifferentiationStrategy | null;
-	researchStatus: ResearchStatus;
-	researchErrors: string[];
+export interface StudySession {
+	id: string;
+	title: string;
+	createdAt: string;
+	updatedAt: string;
+	materials: StudyMaterial[];
+	messages: SessionMessage[];
+	flashcards: Flashcard[];
+	quizzes: QuizQuestion[];
+	summary: string;
+	weakAreas: string[];
 	workflowStatus: WorkflowStatus;
-	launchBrief: LaunchBrief | null;
-	checklist: string[];
-	validationPlan: string[];
-	customerQuestions: string[];
-	outreachMessage: string;
-	decisionBoard: DecisionBoard | null;
-	messagingKit: MessagingKit | null;
-	cloudflarePlan: CloudflarePlan | null;
-	implementationKit: ImplementationKit | null;
-	pitchDeck: PitchDeckSlide[];
-	forecast: ForecastPoint[];
-	websitePrototype: WebsitePrototype | null;
 }
 
-export interface SnapshotExtraction {
-	ideaName: string;
-	oneLiner: string;
-	targetUser: string;
-	problem: string;
-	solution: string;
-	keyFeatures: string[];
-	mvpScope: string[];
-	risks: string[];
-	openQuestions: string[];
+export interface MaterialInsights {
+	summary: string;
+	concepts: string[];
+	weakAreas: string[];
 }
 
-export interface LaunchArtifacts {
-	competitorResearch: CompetitorProfile[];
-	marketInsights: MarketInsight[];
-	recommendedWedge: string;
-	differentiation: DifferentiationStrategy;
-	researchErrors: string[];
-	launchBrief: LaunchBrief;
-	checklist: string[];
-	validationPlan: string[];
-	customerQuestions: string[];
-	outreachMessage: string;
-	decisionBoard: DecisionBoard;
-	messagingKit: MessagingKit;
-	cloudflarePlan: CloudflarePlan;
-	implementationKit: ImplementationKit;
-	pitchDeck: PitchDeckSlide[];
-	forecast: ForecastPoint[];
-	websitePrototype: WebsitePrototype;
-}
-
-export interface CompetitorResearchResult {
-	profiles: CompetitorProfile[];
-	errors: string[];
-}
-
-export interface LaunchWorkflowParams {
+export interface MaterialIngestionWorkflowParams {
 	sessionId: string;
+	materialId: string;
 	workflowId: string;
-	sourceRevision: number;
-	projectState: ProjectState;
 }
 
-export interface JsonModeResponse<T> {
-	response: T;
+export interface FlashcardsResponse {
+	flashcards: Flashcard[];
+}
+
+export interface QuizResponse {
+	quiz: QuizQuestion[];
 }
